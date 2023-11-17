@@ -1,0 +1,25 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" xsi="http://www.w3.org/2001/XMLSchema-instance" engine="UnityEngine.UIElements" editor="UnityEditor.UIElements" editor-extension-mode="False">
+    <Style src="project://database/Assets/Art/UI/Stylesheets/MenuStyle.uss?fileID=7433441132597879392&amp;guid=287755d5db1209445a68c9d55de52249&amp;type=3#MenuStyle" />
+    <ui:VisualElement name="RootPanel" style="flex-grow: 1; max-width: 500px; max-height: 350px;">
+        <ui:VisualElement name="ConnectionPanel" class="MainPanel" style="display: none;">
+            <ui:VisualElement name="NamePanel" class="MenuSubPanel">
+                <ui:TextField picking-mode="Ignore" label="Name" value="Player" name="NameTextField" />
+            </ui:VisualElement>
+            <ui:VisualElement name="JoinIPPanel" class="MenuSubPanel">
+                <ui:TextField picking-mode="Ignore" label="Join IP" value="127.0.0.1" name="JoinIPTextField" />
+                <ui:TextField picking-mode="Ignore" label="Join Port" value="8080" name="JoinPortTextField" />
+                <ui:Button text="Join Game" parse-escape-sequences="true" display-tooltip-when-elided="true" name="JoinButton" style="background-color: rgb(37, 72, 123);" />
+            </ui:VisualElement>
+            <ui:VisualElement name="HostPanel" class="MenuSubPanel">
+                <ui:TextField picking-mode="Ignore" label="Host Port" value="8080" name="HostPortTextField" />
+                <ui:Button text="Host Game" parse-escape-sequences="true" display-tooltip-when-elided="true" name="HostButton" style="background-color: rgb(37, 123, 44);" />
+            </ui:VisualElement>
+        </ui:VisualElement>
+        <ui:VisualElement name="ConnectingPanel" class="MainPanel" style="display: none;">
+            <ui:Label tabindex="-1" text="Connecting...." parse-escape-sequences="true" display-tooltip-when-elided="true" class="InfoText" />
+        </ui:VisualElement>
+        <ui:VisualElement name="GamePanel" class="MainPanel" style="display: none;">
+            <ui:Button text="Disconnect" parse-escape-sequences="true" display-tooltip-when-elided="true" name="DisconnectButton" style="background-color: rgb(244, 99, 99);" />
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>
