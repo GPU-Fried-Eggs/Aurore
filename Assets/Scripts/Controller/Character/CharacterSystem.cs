@@ -20,7 +20,7 @@ namespace Character
         public void OnCreate(ref SystemState state)
         {
             m_CharacterQuery = KinematicCharacterUtilities.GetBaseCharacterQueryBuilder()
-                .WithAll<CharacterData, CharacterControl>()
+                .WithAll<CharacterData, CharacterControl, CharacterStateMachine>()
                 .Build(ref state);
 
             m_Context = new CharacterUpdateContext();

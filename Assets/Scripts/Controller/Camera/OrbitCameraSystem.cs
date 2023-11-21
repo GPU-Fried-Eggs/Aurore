@@ -83,7 +83,9 @@ namespace Camera
                 PhysicsWorld = SystemAPI.GetSingleton<PhysicsWorldSingleton>().PhysicsWorld,
                 LocalToWorldLookup = SystemAPI.GetComponentLookup<LocalToWorld>(false),
                 CharacterBodyLookup = SystemAPI.GetComponentLookup<KinematicCharacterBody>(true),
-                CharacterDataLookup = SystemAPI.GetComponentLookup<CharacterData>(true)
+                CharacterDataLookup = SystemAPI.GetComponentLookup<CharacterData>(true),
+                CharacterStateMachineLookup = SystemAPI.GetComponentLookup<CharacterStateMachine>(true),
+                CustomGravityLookup = SystemAPI.GetComponentLookup<CustomGravity>(true)
             };
             job.Schedule();
         }
@@ -98,6 +100,8 @@ namespace Camera
             public ComponentLookup<LocalToWorld> LocalToWorldLookup;
             [ReadOnly] public ComponentLookup<KinematicCharacterBody> CharacterBodyLookup;
             [ReadOnly] public ComponentLookup<CharacterData> CharacterDataLookup;
+            [ReadOnly] public ComponentLookup<CharacterStateMachine> CharacterStateMachineLookup;
+            [ReadOnly] public ComponentLookup<CustomGravity> CustomGravityLookup;
 
             private void Execute(Entity entity,
                 ref LocalTransform localTransform,
@@ -108,27 +112,35 @@ namespace Camera
                 var elapsedTime = (float)TimeData.ElapsedTime;
 
                 if (LocalToWorldLookup.TryGetComponent(cameraControl.FollowedCharacterEntity, out var characterLTW) &&
-                    CharacterDataLookup.TryGetComponent(cameraControl.FollowedCharacterEntity, out var characterData))
+                    CustomGravityLookup.TryGetComponent(cameraControl.FollowedCharacterEntity, out var customGravity) &&
+                    CharacterDataLookup.TryGetComponent(cameraControl.FollowedCharacterEntity, out var characterData) &&
+                    CharacterStateMachineLookup.TryGetComponent(cameraControl.FollowedCharacterEntity, out var characterStateMachine))
                 {
                     #region Camera target handling
 
-                    var selectedCameraTarget = characterData.DefaultCameraTargetEntity;
+                    characterStateMachine.GetCameraParameters(characterStateMachine.CurrentState, in characterData,
+                        out var selectedCameraTarget, out var calculateUpFromGravity);
 
                     var selectedCameraTargetTransform =
                         LocalToWorldLookup.TryGetComponent(selectedCameraTarget, out var camTargetLTW)
                             ? new RigidTransform(camTargetLTW.Rotation, camTargetLTW.Position)
                             : new RigidTransform(characterLTW.Rotation, characterLTW.Position);
 
-                    selectedCameraTargetTransform.rot =
-                        MathUtilities.CreateRotationWithUpPriority(math.normalizesafe(-characterData.Gravity),
-                            math.mul(selectedCameraTargetTransform.rot, math.forward()));
+                    if (calculateUpFromGravity)
+                    {
+                        selectedCameraTargetTransform.rot =
+                            MathUtilities.CreateRotationWithUpPriority(math.normalizesafe(-customGravity.Gravity),
+                                math.mul(selectedCameraTargetTransform.rot, math.forward()));
+                    }
 
                     // Detect transition
-                    if (orbitCamera.ActiveCameraTarget != selectedCameraTarget)
+                    if (orbitCamera.ActiveCameraTarget != selectedCameraTarget ||
+                        orbitCamera.PreviousCalculateUpFromGravity != calculateUpFromGravity)
                     {
                         orbitCamera.CameraTargetTransitionStartTime = elapsedTime;
                         orbitCamera.CameraTargetTransitionFromTransform = orbitCamera.CameraTargetTransform;
                         orbitCamera.ActiveCameraTarget = selectedCameraTarget;
+                        orbitCamera.PreviousCalculateUpFromGravity = calculateUpFromGravity;
                     }
 
                     // Update transitions

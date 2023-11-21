@@ -35,6 +35,7 @@ namespace Camera
         public float CameraTargetTransitionStartTime;
         public RigidTransform CameraTargetTransform;
         public RigidTransform CameraTargetTransitionFromTransform;
+        public bool PreviousCalculateUpFromGravity;
     }
 
     [Serializable]

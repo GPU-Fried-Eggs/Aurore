@@ -73,6 +73,33 @@ namespace Player
                     ""processors"": """",
                     ""interactions"": """",
                     ""initialStateCheck"": false
+                },
+                {
+                    ""name"": ""Crouch"",
+                    ""type"": ""Button"",
+                    ""id"": ""b9dbfacc-cee0-4337-96da-134f449a21c1"",
+                    ""expectedControlType"": ""Button"",
+                    ""processors"": """",
+                    ""interactions"": """",
+                    ""initialStateCheck"": false
+                },
+                {
+                    ""name"": ""Sprint"",
+                    ""type"": ""Button"",
+                    ""id"": ""85835435-e7f2-44da-ad49-bdea22fc556e"",
+                    ""expectedControlType"": ""Button"",
+                    ""processors"": """",
+                    ""interactions"": """",
+                    ""initialStateCheck"": false
+                },
+                {
+                    ""name"": ""GodMode"",
+                    ""type"": ""Button"",
+                    ""id"": ""9ce57d0b-67e9-48cd-9608-0cc9b7920b52"",
+                    ""expectedControlType"": ""Button"",
+                    ""processors"": """",
+                    ""interactions"": """",
+                    ""initialStateCheck"": false
                 }
             ],
             ""bindings"": [
@@ -207,6 +234,111 @@ namespace Player
                     ""action"": ""Jump"",
                     ""isComposite"": false,
                     ""isPartOfComposite"": false
+                },
+                {
+                    ""name"": """",
+                    ""id"": ""b8857ebe-a3d8-4ac2-8ecc-6d9ff086edbf"",
+                    ""path"": ""<Keyboard>/leftCtrl"",
+                    ""interactions"": """",
+                    ""processors"": """",
+                    ""groups"": """",
+                    ""action"": ""Crouch"",
+                    ""isComposite"": false,
+                    ""isPartOfComposite"": false
+                },
+                {
+                    ""name"": """",
+                    ""id"": ""5d41cf27-098e-4f66-a120-1249cb9082f8"",
+                    ""path"": ""<Gamepad>/buttonWest"",
+                    ""interactions"": """",
+                    ""processors"": """",
+                    ""groups"": """",
+                    ""action"": ""Crouch"",
+                    ""isComposite"": false,
+                    ""isPartOfComposite"": false
+                },
+                {
+                    ""name"": """",
+                    ""id"": ""e3066a2d-6e6e-4508-b5ca-5df6c004d92e"",
+                    ""path"": ""<Keyboard>/leftShift"",
+                    ""interactions"": """",
+                    ""processors"": """",
+                    ""groups"": """",
+                    ""action"": ""Sprint"",
+                    ""isComposite"": false,
+                    ""isPartOfComposite"": false
+                },
+                {
+                    ""name"": """",
+                    ""id"": ""db8f58c8-d84d-423b-8608-58639a692b4d"",
+                    ""path"": ""<Gamepad>/rightTrigger"",
+                    ""interactions"": """",
+                    ""processors"": """",
+                    ""groups"": """",
+                    ""action"": ""Sprint"",
+                    ""isComposite"": false,
+                    ""isPartOfComposite"": false
+                },
+                {
+                    ""name"": """",
+                    ""id"": ""87e0a538-1625-4815-bfb4-2f2efa56acdb"",
+                    ""path"": ""<Keyboard>/z"",
+                    ""interactions"": """",
+                    ""processors"": """",
+                    ""groups"": """",
+                    ""action"": ""GodMode"",
+                    ""isComposite"": false,
+                    ""isPartOfComposite"": false
+                },
+                {
+                    ""name"": """",
+                    ""id"": ""bc3536d6-3354-4d1f-867c-1a5481e9a731"",
+                    ""path"": ""<Gamepad>/select"",
+                    ""interactions"": """",
+                    ""processors"": """",
+                    ""groups"": """",
+                    ""action"": ""GodMode"",
+                    ""isComposite"": false,
+                    ""isPartOfComposite"": false
+                }
+            ]
+        },
+        {
+            ""name"": ""MenuMap"",
+            ""id"": ""08828243-0fa1-4364-8eef-e9e3bda16037"",
+            ""actions"": [
+                {
+                    ""name"": ""ToggleMenu"",
+                    ""type"": ""Button"",
+                    ""id"": ""894eb2f0-bd71-4011-bca1-281b6cb48942"",
+                    ""expectedControlType"": ""Button"",
+                    ""processors"": """",
+                    ""interactions"": """",
+                    ""initialStateCheck"": false
+                }
+            ],
+            ""bindings"": [
+                {
+                    ""name"": """",
+                    ""id"": ""8743d8b3-15c3-4ffe-8f98-ee25a3bc88f2"",
+                    ""path"": ""<Keyboard>/escape"",
+                    ""interactions"": """",
+                    ""processors"": """",
+                    ""groups"": """",
+                    ""action"": ""ToggleMenu"",
+                    ""isComposite"": false,
+                    ""isPartOfComposite"": false
+                },
+                {
+                    ""name"": """",
+                    ""id"": ""81d1c84d-43fd-4089-9526-c5a6569ebaad"",
+                    ""path"": ""<Gamepad>/start"",
+                    ""interactions"": """",
+                    ""processors"": """",
+                    ""groups"": """",
+                    ""action"": ""ToggleMenu"",
+                    ""isComposite"": false,
+                    ""isPartOfComposite"": false
                 }
             ]
         }
@@ -220,6 +352,12 @@ namespace Player
             m_GameplayMap_LookConst = m_GameplayMap.FindAction("LookConst", throwIfNotFound: true);
             m_GameplayMap_CameraZoom = m_GameplayMap.FindAction("CameraZoom", throwIfNotFound: true);
             m_GameplayMap_Jump = m_GameplayMap.FindAction("Jump", throwIfNotFound: true);
+            m_GameplayMap_Crouch = m_GameplayMap.FindAction("Crouch", throwIfNotFound: true);
+            m_GameplayMap_Sprint = m_GameplayMap.FindAction("Sprint", throwIfNotFound: true);
+            m_GameplayMap_GodMode = m_GameplayMap.FindAction("GodMode", throwIfNotFound: true);
+            // MenuMap
+            m_MenuMap = asset.FindActionMap("MenuMap", throwIfNotFound: true);
+            m_MenuMap_ToggleMenu = m_MenuMap.FindAction("ToggleMenu", throwIfNotFound: true);
         }
 
         public void Dispose()
@@ -286,6 +424,9 @@ namespace Player
         private readonly InputAction m_GameplayMap_LookConst;
         private readonly InputAction m_GameplayMap_CameraZoom;
         private readonly InputAction m_GameplayMap_Jump;
+        private readonly InputAction m_GameplayMap_Crouch;
+        private readonly InputAction m_GameplayMap_Sprint;
+        private readonly InputAction m_GameplayMap_GodMode;
         public struct GameplayMapActions
         {
             private @PlayerInputActions m_Wrapper;
@@ -295,6 +436,9 @@ namespace Player
             public InputAction @LookConst => m_Wrapper.m_GameplayMap_LookConst;
             public InputAction @CameraZoom => m_Wrapper.m_GameplayMap_CameraZoom;
             public InputAction @Jump => m_Wrapper.m_GameplayMap_Jump;
+            public InputAction @Crouch => m_Wrapper.m_GameplayMap_Crouch;
+            public InputAction @Sprint => m_Wrapper.m_GameplayMap_Sprint;
+            public InputAction @GodMode => m_Wrapper.m_GameplayMap_GodMode;
             public InputActionMap Get() { return m_Wrapper.m_GameplayMap; }
             public void Enable() { Get().Enable(); }
             public void Disable() { Get().Disable(); }
@@ -319,6 +463,15 @@ namespace Player
                 @Jump.started += instance.OnJump;
                 @Jump.performed += instance.OnJump;
                 @Jump.canceled += instance.OnJump;
+                @Crouch.started += instance.OnCrouch;
+                @Crouch.performed += instance.OnCrouch;
+                @Crouch.canceled += instance.OnCrouch;
+                @Sprint.started += instance.OnSprint;
+                @Sprint.performed += instance.OnSprint;
+                @Sprint.canceled += instance.OnSprint;
+                @GodMode.started += instance.OnGodMode;
+                @GodMode.performed += instance.OnGodMode;
+                @GodMode.canceled += instance.OnGodMode;
             }
 
             private void UnregisterCallbacks(IGameplayMapActions instance)
@@ -338,6 +491,15 @@ namespace Player
                 @Jump.started -= instance.OnJump;
                 @Jump.performed -= instance.OnJump;
                 @Jump.canceled -= instance.OnJump;
+                @Crouch.started -= instance.OnCrouch;
+                @Crouch.performed -= instance.OnCrouch;
+                @Crouch.canceled -= instance.OnCrouch;
+                @Sprint.started -= instance.OnSprint;
+                @Sprint.performed -= instance.OnSprint;
+                @Sprint.canceled -= instance.OnSprint;
+                @GodMode.started -= instance.OnGodMode;
+                @GodMode.performed -= instance.OnGodMode;
+                @GodMode.canceled -= instance.OnGodMode;
             }
 
             public void RemoveCallbacks(IGameplayMapActions instance)
@@ -355,6 +517,52 @@ namespace Player
             }
         }
         public GameplayMapActions @GameplayMap => new GameplayMapActions(this);
+
+        // MenuMap
+        private readonly InputActionMap m_MenuMap;
+        private List<IMenuMapActions> m_MenuMapActionsCallbackInterfaces = new List<IMenuMapActions>();
+        private readonly InputAction m_MenuMap_ToggleMenu;
+        public struct MenuMapActions
+        {
+            private @PlayerInputActions m_Wrapper;
+            public MenuMapActions(@PlayerInputActions wrapper) { m_Wrapper = wrapper; }
+            public InputAction @ToggleMenu => m_Wrapper.m_MenuMap_ToggleMenu;
+            public InputActionMap Get() { return m_Wrapper.m_MenuMap; }
+            public void Enable() { Get().Enable(); }
+            public void Disable() { Get().Disable(); }
+            public bool enabled => Get().enabled;
+            public static implicit operator InputActionMap(MenuMapActions set) { return set.Get(); }
+            public void AddCallbacks(IMenuMapActions instance)
+            {
+                if (instance == null || m_Wrapper.m_MenuMapActionsCallbackInterfaces.Contains(instance)) return;
+                m_Wrapper.m_MenuMapActionsCallbackInterfaces.Add(instance);
+                @ToggleMenu.started += instance.OnToggleMenu;
+                @ToggleMenu.performed += instance.OnToggleMenu;
+                @ToggleMenu.canceled += instance.OnToggleMenu;
+            }
+
+            private void UnregisterCallbacks(IMenuMapActions instance)
+            {
+                @ToggleMenu.started -= instance.OnToggleMenu;
+                @ToggleMenu.performed -= instance.OnToggleMenu;
+                @ToggleMenu.canceled -= instance.OnToggleMenu;
+            }
+
+            public void RemoveCallbacks(IMenuMapActions instance)
+            {
+                if (m_Wrapper.m_MenuMapActionsCallbackInterfaces.Remove(instance))
+                    UnregisterCallbacks(instance);
+            }
+
+            public void SetCallbacks(IMenuMapActions instance)
+            {
+                foreach (var item in m_Wrapper.m_MenuMapActionsCallbackInterfaces)
+                    UnregisterCallbacks(item);
+                m_Wrapper.m_MenuMapActionsCallbackInterfaces.Clear();
+                AddCallbacks(instance);
+            }
+        }
+        public MenuMapActions @MenuMap => new MenuMapActions(this);
         public interface IGameplayMapActions
         {
             void OnMove(InputAction.CallbackContext context);
@@ -362,6 +570,13 @@ namespace Player
             void OnLookConst(InputAction.CallbackContext context);
             void OnCameraZoom(InputAction.CallbackContext context);
             void OnJump(InputAction.CallbackContext context);
+            void OnCrouch(InputAction.CallbackContext context);
+            void OnSprint(InputAction.CallbackContext context);
+            void OnGodMode(InputAction.CallbackContext context);
+        }
+        public interface IMenuMapActions
+        {
+            void OnToggleMenu(InputAction.CallbackContext context);
         }
     }
 }

@@ -48,13 +48,13 @@ MonoBehaviour:
   MaxVAngle: 89
   MinVAngle: -89
   RotateWithCharacterParent: 1
-  StartDistance: 5
-  MinDistance: 0
+  StartDistance: 2.5
+  MinDistance: 1
   MaxDistance: 10
-  DistanceMovementSpeed: 1
+  DistanceMovementSpeed: 0.1
   DistanceMovementSharpness: 20
   ObstructionRadius: 0.1
-  ObstructionInnerSmoothingSharpness: 3.4028235e+38
+  ObstructionInnerSmoothingSharpness: 3.402823e+38
   ObstructionOuterSmoothingSharpness: 5
   PreventFixedUpdateJitter: 1
   CameraTargetTransitionTime: 0.4

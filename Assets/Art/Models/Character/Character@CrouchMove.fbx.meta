@@ -1,5 +1,5 @@
 fileFormatVersion: 2
-guid: ac64cda951df44a4491d7aeb2206ff52
+guid: b921b1bfc1ad1bc4c8247550656c1d9b
 ModelImporter:
   serializedVersion: 22200
   internalIDToNameTable: []
@@ -33,11 +33,11 @@ ModelImporter:
     extraUserProperties: []
     clipAnimations:
     - serializedVersion: 16
-      name: SwimmingMove
-      takeName: Armature|InAir
-      internalID: 7055258384036259934
+      name: CrouchMove
+      takeName: Armature|Idle
+      internalID: -8945691123924629249
       firstFrame: 0
-      lastFrame: 20
+      lastFrame: 40
       wrapMode: 0
       orientationOffsetY: 0
       level: 0

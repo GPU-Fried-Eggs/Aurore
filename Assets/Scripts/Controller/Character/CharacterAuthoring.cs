@@ -1,4 +1,5 @@
-﻿using Character.Kinematic;
+﻿using Character.Hybrid;
+using Character.Kinematic;
 using Unity.Entities;
 using UnityEngine;
 using Utilities;
@@ -11,7 +12,12 @@ namespace Character
         public AuthoringKinematicCharacterData CharacterData = AuthoringKinematicCharacterData.GetDefault();
         public CharacterData Character = default;
 
+        [Header("References")]
+        public GameObject MeshPrefab;
         public GameObject DefaultCameraTarget;
+        public GameObject SwimmingCameraTarget;
+        public GameObject CrouchingCameraTarget;
+        public GameObject MeshRoot;
 
         private class CharacterBaker : Baker<CharacterAuthoring>
         {
@@ -20,11 +26,16 @@ namespace Character
                 KinematicCharacterUtilities.BakeCharacter(this, authoring, authoring.CharacterData);
 
                 authoring.Character.DefaultCameraTargetEntity = GetEntity(authoring.DefaultCameraTarget, TransformUsageFlags.Dynamic);
+                authoring.Character.SwimmingCameraTargetEntity = GetEntity(authoring.SwimmingCameraTarget, TransformUsageFlags.Dynamic);
+                authoring.Character.CrouchingCameraTargetEntity = GetEntity(authoring.CrouchingCameraTarget, TransformUsageFlags.Dynamic);
+                authoring.Character.MeshRootEntity = GetEntity(authoring.MeshRoot, TransformUsageFlags.Dynamic);
 
                 var entity = GetEntity(TransformUsageFlags.Dynamic);
 
                 AddComponent(entity, authoring.Character);
                 AddComponent(entity, new CharacterControl());
+                AddComponent(entity, new CharacterStateMachine());
+                AddComponentObject(entity, new CharacterHybridData { MeshPrefab = authoring.MeshPrefab });
             }
         }
     }

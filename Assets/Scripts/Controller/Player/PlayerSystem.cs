@@ -24,7 +24,6 @@ namespace Player
             Cursor.visible = false;
         
             RequireForUpdate<FixedTickSystem.Singleton>();
-
             RequireForUpdate(SystemAPI.QueryBuilder().WithAll<PlayerData, PlayerInputs>().Build());
         }
 
@@ -45,10 +44,16 @@ namespace Player
                     playerInputs.ValueRW.Look = m_ActionsMap.LookDelta.ReadValue<Vector2>();
                 }
                 playerInputs.ValueRW.CameraZoom = m_ActionsMap.CameraZoom.ReadValue<float>();
+                playerInputs.ValueRW.SprintHeld = m_ActionsMap.Sprint.IsPressed();
+                playerInputs.ValueRW.CrouchHeld = m_ActionsMap.Crouch.IsPressed();
                 playerInputs.ValueRW.JumpHeld = m_ActionsMap.Jump.IsPressed();
 
                 if (m_ActionsMap.Jump.WasPressedThisFrame())
                     playerInputs.ValueRW.JumpPressed.Set(fixedTick);
+                if (m_ActionsMap.Crouch.WasPressedThisFrame())
+                    playerInputs.ValueRW.CrouchPressed.Set(fixedTick);
+                if (m_ActionsMap.GodMode.WasPressedThisFrame())
+                    playerInputs.ValueRW.GodModePressed.Set(fixedTick);
             }
         }
     }
@@ -106,21 +111,27 @@ namespace Player
                          .WithAll<Simulate>()
                          .WithEntityAccess())
             {
-                if (SystemAPI.HasComponent<CharacterControl>(player.ControlledCharacter))
+                if (SystemAPI.HasComponent<CharacterControl>(player.ControlledCharacter) &&
+                    SystemAPI.HasComponent<CharacterStateMachine>(player.ControlledCharacter))
                 {
                     var characterControl = SystemAPI.GetComponent<CharacterControl>(player.ControlledCharacter);
+                    var stateMachine = SystemAPI.GetComponent<CharacterStateMachine>(player.ControlledCharacter);
 
                     // Get camera rotation data, since our movement is relative to it
                     var cameraRotation = SystemAPI.HasComponent<LocalTransform>(player.ControlledCamera)
                         ? SystemAPI.GetComponent<LocalTransform>(player.ControlledCamera).Rotation
                         : quaternion.identity;
 
-                    characterControl.MoveVector = (math.mul(cameraRotation, math.right()) * playerInputs.ValueRO.Move.x) +
-                                                  (math.mul(cameraRotation, math.forward()) * playerInputs.ValueRO.Move.y);
+                    stateMachine.GetMoveVectorFromPlayerInput(stateMachine.CurrentState, in playerInputs.ValueRO,
+                        cameraRotation, out characterControl.MoveVector);
 
                     characterControl.JumpHeld = playerInputs.ValueRW.JumpHeld;
+                    characterControl.CrouchHeld = playerInputs.ValueRW.CrouchHeld;
+                    characterControl.SprintHeld = playerInputs.ValueRW.SprintHeld;
 
                     characterControl.JumpPressed = playerInputs.ValueRW.JumpPressed.IsSet(fixedTick);
+                    characterControl.CrouchPressed = playerInputs.ValueRW.CrouchPressed.IsSet(fixedTick);
+                    characterControl.GodModePressed = playerInputs.ValueRW.GodModePressed.IsSet(fixedTick); 
 
                     SystemAPI.SetComponent(player.ControlledCharacter, characterControl);
                 }

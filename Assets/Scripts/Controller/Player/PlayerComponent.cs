@@ -18,9 +18,13 @@ namespace Player
         public float2 Look;
         public float CameraZoom;
 
+        public bool SprintHeld;
+        public bool CrouchHeld;
         public bool JumpHeld;
 
         public FixedInputEvent JumpPressed;
+        public FixedInputEvent CrouchPressed;
+        public FixedInputEvent GodModePressed;
     }
 
     public struct FixedInputEvent
