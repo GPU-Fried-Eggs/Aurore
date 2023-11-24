@@ -10,7 +10,7 @@ namespace Character.Kinematic
     public struct CharacterInterpolation : IComponentData
     {
         /// <summary>
-        /// The "previous" transform to interpolate from 
+        /// The "previous" transform to interpolate from
         /// </summary>
         public RigidTransform InterpolationFromTransform;
         /// <summary>
@@ -18,7 +18,7 @@ namespace Character.Kinematic
         /// </summary>
         public byte InterpolationSkipping;
         /// <summary>
-        /// Empty byte
+        /// Used for flags reset with mem copy
         /// </summary>
         private byte DefaultByte;
 

@@ -36,14 +36,15 @@ namespace Character.Kinematic
             var physicsWorld = SystemAPI.GetSingletonRW<PhysicsWorldSingleton>().ValueRW.PhysicsWorld;
             var simulationSingleton = SystemAPI.GetSingleton<SimulationSingleton>();
 
-            if (physicsWorld.Bodies.Length <= 0) return;
-
-            var job = new DisableCharacterDynamicContactsJob
+            if (physicsWorld.Bodies.Length > 0)
             {
-                PhysicsWorld = physicsWorld,
-                StoredCharacterDataLookup = SystemAPI.GetComponentLookup<KinematicCharacterStoredData>(true)
-            };
-            state.Dependency = job.Schedule(simulationSingleton, ref physicsWorld, state.Dependency);
+                var job = new DisableCharacterDynamicContactsJob
+                {
+                    PhysicsWorld = physicsWorld,
+                    StoredCharacterDataLookup = SystemAPI.GetComponentLookup<KinematicCharacterStoredData>(true)
+                };
+                state.Dependency = job.Schedule(simulationSingleton, ref physicsWorld, state.Dependency);
+            }
         }
 
         [BurstCompile]
@@ -69,13 +70,17 @@ namespace Character.Kinematic
                 var dynamicBodyColliderKey = aIsKinematic ? manifold.ColliderKeyB : manifold.ColliderKeyA;
 
                 // Disable only if dynamic entity is collidable
-                var dynamicBodyCollisionResponse = PhysicsWorld.Bodies[dynamicBodyIndex].Collider.Value.GetCollisionResponse(dynamicBodyColliderKey);
-                if (dynamicBodyCollisionResponse is CollisionResponsePolicy.Collide or CollisionResponsePolicy.CollideRaiseCollisionEvents)
+                var dynamicBodyCollisionResponse = PhysicsWorld.Bodies[dynamicBodyIndex]
+                    .Collider.Value.GetCollisionResponse(dynamicBodyColliderKey);
+                if (dynamicBodyCollisionResponse is CollisionResponsePolicy.Collide
+                    or CollisionResponsePolicy.CollideRaiseCollisionEvents)
                 {
                     // Disable only if kinematic entity is character and is simulated dynamic
                     if (StoredCharacterDataLookup.TryGetComponent(kinematicEntity, out var characterData) &&
                         characterData.SimulateDynamicBody)
+                    {
                         manifold.JacobianFlags |= JacobianFlags.Disabled;
+                    }
                 }
             }
         }

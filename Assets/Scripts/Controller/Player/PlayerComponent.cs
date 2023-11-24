@@ -12,7 +12,7 @@ namespace Player
     {
         [GhostField] public FixedString128Bytes Name;
         [GhostField] public Entity ControlledCharacter;
-        public Entity ControlledCamera;
+        [GhostField] public Entity ControlledCamera;
     }
 
     [Serializable]

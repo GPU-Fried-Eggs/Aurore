@@ -9,13 +9,14 @@ namespace Character.Kinematic
     public readonly partial struct KinematicCharacterAspect
     {
         /// <summary>
-        /// Casts the character collider and only returns the closest collideable hit 
+        /// Casts the character collider and only returns the closest collideable hit
         /// </summary>
         /// <param name="processor"> The struct implementing <see cref="IKinematicCharacterProcessor{C}"/> </param>
         /// <param name="context"> The user context struct holding global data meant to be accessed during the character update </param>
-        /// <param name="baseContext"> The built-in context struct holding global data meant to be accessed during the character update </param> 
+        /// <param name="baseContext"> The built-in context struct holding global data meant to be accessed during the character update </param>
         /// <param name="characterPosition"> The position of the character </param>
         /// <param name="characterRotation"> The rotation of the character</param>
+        /// <param name="characterScale"> The uniform scale of the character</param>
         /// <param name="direction"> The direction of the case </param>
         /// <param name="length"> The length of the cast </param>
         /// <param name="onlyObstructingHits"> Should the cast only detect hits whose normal is opposed to the direction of the cast </param>
@@ -30,6 +31,7 @@ namespace Character.Kinematic
             ref KinematicCharacterUpdateContext baseContext,
             float3 characterPosition,
             quaternion characterRotation,
+            float characterScale,
             float3 direction,
             float length,
             bool onlyObstructingHits,
@@ -42,14 +44,15 @@ namespace Character.Kinematic
             var characterPhysicsCollider = PhysicsCollider.ValueRO;
 
             var castInput = new ColliderCastInput(characterPhysicsCollider.Value, characterPosition,
-                characterPosition + (direction * length), characterRotation);
+                characterPosition + (direction * length), characterRotation, characterScale);
+
             baseContext.TmpColliderCastHits.Clear();
             var collector = new AllHitsCollector<ColliderCastHit>(1f, ref baseContext.TmpColliderCastHits);
             baseContext.PhysicsWorld.CastCollider(castInput, ref collector);
 
             if (FilterColliderCastHitsForClosestCollisions(in processor, ref context, ref baseContext,
-                    ref baseContext.TmpColliderCastHits, onlyObstructingHits, direction, ignoreDynamicBodies,
-                    out var closestHit))
+                    ref baseContext.TmpColliderCastHits, onlyObstructingHits, direction,
+                    ignoreDynamicBodies, out var closestHit))
             {
                 hit = closestHit;
                 hitDistance = length * hit.Fraction;
@@ -62,13 +65,14 @@ namespace Character.Kinematic
         }
 
         /// <summary>
-        /// Casts the character collider and returns all collideable hit 
+        /// Casts the character collider and returns all collideable hit
         /// </summary>
         /// <param name="processor"> The struct implementing <see cref="IKinematicCharacterProcessor{C}"/> </param>
         /// <param name="context"> The user context struct holding global data meant to be accessed during the character update </param>
-        /// <param name="baseContext"> The built-in context struct holding global data meant to be accessed during the character update </param> 
+        /// <param name="baseContext"> The built-in context struct holding global data meant to be accessed during the character update </param>
         /// <param name="characterPosition"> The position of the character </param>
         /// <param name="characterRotation"> The rotation of the character</param>
+        /// <param name="characterScale"> The uniform scale of the character</param>
         /// <param name="direction"> The direction of the case </param>
         /// <param name="length"> The length of the cast </param>
         /// <param name="onlyObstructingHits"> Should the cast only detect hits whose normal is opposed to the direction of the cast </param>
@@ -82,6 +86,7 @@ namespace Character.Kinematic
             ref KinematicCharacterUpdateContext baseContext,
             float3 characterPosition,
             quaternion characterRotation,
+            float characterScale,
             float3 direction,
             float length,
             bool onlyObstructingHits,
@@ -94,7 +99,8 @@ namespace Character.Kinematic
             hits = baseContext.TmpColliderCastHits;
 
             var castInput = new ColliderCastInput(characterPhysicsCollider.Value, characterPosition,
-                characterPosition + (direction * length), characterRotation);
+                characterPosition + (direction * length), characterRotation, characterScale);
+
             baseContext.TmpColliderCastHits.Clear();
             var collector = new AllHitsCollector<ColliderCastHit>(1f, ref baseContext.TmpColliderCastHits);
             baseContext.PhysicsWorld.CastCollider(castInput, ref collector);
@@ -104,11 +110,11 @@ namespace Character.Kinematic
         }
 
         /// <summary>
-        /// Casts a ray and only returns the closest collideable hit 
+        /// Casts a ray and only returns the closest collideable hit
         /// </summary>
         /// <param name="processor"> The struct implementing <see cref="IKinematicCharacterProcessor{C}"/> </param>
         /// <param name="context"> The user context struct holding global data meant to be accessed during the character update </param>
-        /// <param name="baseContext"> The built-in context struct holding global data meant to be accessed during the character update </param> 
+        /// <param name="baseContext"> The built-in context struct holding global data meant to be accessed during the character update </param>
         /// <param name="startPoint"> The cast start point </param>
         /// <param name="direction"> The direction of the case </param>
         /// <param name="length"> The length of the cast </param>
@@ -138,6 +144,7 @@ namespace Character.Kinematic
                 End = startPoint + (direction * length),
                 Filter = characterPhysicsCollider.Value.Value.GetCollisionFilter(),
             };
+
             baseContext.TmpRaycastHits.Clear();
             var collector = new AllHitsCollector<RaycastHit>(1f, ref baseContext.TmpRaycastHits);
             baseContext.PhysicsWorld.CastRay(castInput, ref collector);
@@ -156,11 +163,11 @@ namespace Character.Kinematic
         }
 
         /// <summary>
-        /// Casts a ray and returns all collideable hits 
+        /// Casts a ray and returns all collideable hits
         /// </summary>
         /// <param name="processor"> The struct implementing <see cref="IKinematicCharacterProcessor{C}"/> </param>
         /// <param name="context"> The user context struct holding global data meant to be accessed during the character update </param>
-        /// <param name="baseContext"> The built-in context struct holding global data meant to be accessed during the character update </param> 
+        /// <param name="baseContext"> The built-in context struct holding global data meant to be accessed during the character update </param>
         /// <param name="startPoint"> The cast start point </param>
         /// <param name="direction"> The direction of the case </param>
         /// <param name="length"> The length of the cast </param>
@@ -189,6 +196,7 @@ namespace Character.Kinematic
                 End = startPoint + (direction * length),
                 Filter = characterPhysicsCollider.Value.Value.GetCollisionFilter(),
             };
+
             baseContext.TmpRaycastHits.Clear();
             var collector = new AllHitsCollector<RaycastHit>(1f, ref baseContext.TmpRaycastHits);
             baseContext.PhysicsWorld.CastRay(castInput, ref collector);
@@ -198,13 +206,14 @@ namespace Character.Kinematic
         }
 
         /// <summary>
-        /// Calculates distance from the character collider and only returns the closest collideable hit 
+        /// Calculates distance from the character collider and only returns the closest collideable hit
         /// </summary>
         /// <param name="processor"> The struct implementing <see cref="IKinematicCharacterProcessor{C}"/> </param>
         /// <param name="context"> The user context struct holding global data meant to be accessed during the character update </param>
-        /// <param name="baseContext"> The built-in context struct holding global data meant to be accessed during the character update </param> 
+        /// <param name="baseContext"> The built-in context struct holding global data meant to be accessed during the character update </param>
         /// <param name="characterPosition"> The position of the character </param>
         /// <param name="characterRotation"> The rotation of the character</param>
+        /// <param name="characterScale"> The uniform scale of the character</param>
         /// <param name="maxDistance"> The direction of the case </param>
         /// <param name="ignoreDynamicBodies"> Should the cast ignore dynamic bodies </param>
         /// <param name="hit"> The closest detected hit </param>
@@ -216,6 +225,7 @@ namespace Character.Kinematic
             ref KinematicCharacterUpdateContext baseContext,
             float3 characterPosition,
             quaternion characterRotation,
+            float characterScale,
             float maxDistance,
             bool ignoreDynamicBodies,
             out DistanceHit hit)
@@ -224,7 +234,9 @@ namespace Character.Kinematic
         {
             var characterPhysicsCollider = PhysicsCollider.ValueRO;
 
-            var distanceInput = new ColliderDistanceInput(characterPhysicsCollider.Value, maxDistance, math.RigidTransform(characterRotation, characterPosition));
+            var distanceInput = new ColliderDistanceInput(characterPhysicsCollider.Value, maxDistance,
+                math.RigidTransform(characterRotation, characterPosition), characterScale);
+
             baseContext.TmpDistanceHits.Clear();
             var collector = new AllHitsCollector<DistanceHit>(distanceInput.MaxDistance, ref baseContext.TmpDistanceHits);
             baseContext.PhysicsWorld.CalculateDistance(distanceInput, ref collector);
@@ -245,20 +257,22 @@ namespace Character.Kinematic
         /// </summary>
         /// <param name="processor"> The struct implementing <see cref="IKinematicCharacterProcessor{C}"/> </param>
         /// <param name="context"> The user context struct holding global data meant to be accessed during the character update </param>
-        /// <param name="baseContext"> The built-in context struct holding global data meant to be accessed during the character update </param> 
+        /// <param name="baseContext"> The built-in context struct holding global data meant to be accessed during the character update </param>
         /// <param name="characterPosition"> The position of the character </param>
         /// <param name="characterRotation"> The rotation of the character</param>
+        /// <param name="characterScale"> The uniform scale of the character</param>
         /// <param name="maxDistance"> The direction of the case </param>
         /// <param name="ignoreDynamicBodies"> Should the cast ignore dynamic bodies </param>
         /// <param name="hits"> The detected hits </param>
         /// <typeparam name="T"> The type of the struct implementing <see cref="IKinematicCharacterProcessor{C}"/> </typeparam>
         /// <typeparam name="C"> The type of the user-created context struct </typeparam>
         /// <returns> Whether or not any valid hit was detected</returns>
-        public bool CalculateDistanceAllCollisions<T, C>(in T processor,
+        public unsafe bool CalculateDistanceAllCollisions<T, C>(in T processor,
             ref C context,
             ref KinematicCharacterUpdateContext baseContext,
             float3 characterPosition,
             quaternion characterRotation,
+            float characterScale,
             float maxDistance,
             bool ignoreDynamicBodies,
             out NativeList<DistanceHit> hits)
@@ -268,7 +282,9 @@ namespace Character.Kinematic
             var characterPhysicsCollider = PhysicsCollider.ValueRO;
             hits = baseContext.TmpDistanceHits;
 
-            var distanceInput = new ColliderDistanceInput(characterPhysicsCollider.Value, maxDistance, math.RigidTransform(characterRotation, characterPosition));
+            var distanceInput = new ColliderDistanceInput(characterPhysicsCollider.Value, maxDistance,
+                math.RigidTransform(characterRotation, characterPosition), characterScale);
+
             baseContext.TmpDistanceHits.Clear();
             var collector = new AllHitsCollector<DistanceHit>(distanceInput.MaxDistance, ref baseContext.TmpDistanceHits);
             baseContext.PhysicsWorld.CalculateDistance(distanceInput, ref collector);
@@ -278,11 +294,11 @@ namespace Character.Kinematic
         }
 
         /// <summary>
-        /// Filters a list of hits for ground probing and returns the closest valid hit 
+        /// Filters a list of hits for ground probing and returns the closest valid hit
         /// </summary>
         /// <param name="processor"> The struct implementing <see cref="IKinematicCharacterProcessor{C}"/> </param>
         /// <param name="context"> The user context struct holding global data meant to be accessed during the character update </param>
-        /// <param name="baseContext"> The built-in context struct holding global data meant to be accessed during the character update </param> 
+        /// <param name="baseContext"> The built-in context struct holding global data meant to be accessed during the character update </param>
         /// <param name="hits"> The list of hits to filter </param>
         /// <param name="castDirection"> The direction of the ground probing cast </param>
         /// <param name="ignoreDynamicBodies"> Should the cast ignore dynamic bodies </param>
@@ -307,7 +323,6 @@ namespace Character.Kinematic
             {
                 var hitAccepted = false;
                 var hit = hits[i];
-
                 if (hit.Entity != Entity)
                 {
                     // ignore hits if we're going away from them
@@ -341,7 +356,7 @@ namespace Character.Kinematic
         /// </summary>
         /// <param name="processor"> The struct implementing <see cref="IKinematicCharacterProcessor{C}"/> </param>
         /// <param name="context"> The user context struct holding global data meant to be accessed during the character update </param>
-        /// <param name="baseContext"> The built-in context struct holding global data meant to be accessed during the character update </param> 
+        /// <param name="baseContext"> The built-in context struct holding global data meant to be accessed during the character update </param>
         /// <param name="hits"> The list of hits to filter </param>
         /// <param name="characterIsKinematic"> Is the character kinematic (as opposed to simulated dynamic) </param>
         /// <param name="castDirection"> The direction of the ground probing cast </param>
@@ -373,34 +388,32 @@ namespace Character.Kinematic
             for (var i = hits.Length - 1; i >= 0; i--)
             {
                 var hit = hits[i];
-                if (hit.Entity != ignoredEntity)
+                if (hit.Entity == ignoredEntity) continue;
+                if (hit.Entity != Entity)
                 {
-                    if (hit.Entity != Entity)
+                    if (processor.CanCollideWithHit(ref context, ref baseContext, new BasicHit(hit)))
                     {
-                        if (processor.CanCollideWithHit(ref context, ref baseContext, new BasicHit(hit)))
+                        var hitBodyIsDynamic = PhysicsUtilities.IsBodyDynamic(in baseContext.PhysicsWorld, hit.RigidBodyIndex);
+
+                        // Remember overlaps (must always include dynamic hits or hits we move away from)
+                        if (hit.Fraction <= 0f || (characterIsKinematic && hitBodyIsDynamic))
+                            foundAnyOverlaps = true;
+
+                        if (ignoreDynamicBodies && hitBodyIsDynamic) continue;
+
+                        // ignore hits if we're going away from them
+                        var dotRatio = math.dot(hit.SurfaceNormal, castDirection);
+                        if (dotRatio < -k_DotProductSimilarityEpsilon)
                         {
-                            var hitBodyIsDynamic = PhysicsUtilities.IsBodyDynamic(in baseContext.PhysicsWorld, hit.RigidBodyIndex);
-
-                            // Remember overlaps (must always include dynamic hits or hits we move away from)
-                            if (hit.Fraction <= 0f || (characterIsKinematic && hitBodyIsDynamic))
-                                foundAnyOverlaps = true;
-
-                            if (ignoreDynamicBodies && hitBodyIsDynamic) continue;
-
-                            // ignore hits if we're going away from them
-                            var dotRatio = math.dot(hit.SurfaceNormal, castDirection);
-                            if (dotRatio < -k_DotProductSimilarityEpsilon)
+                            // only accept closest hit so far
+                            if (hit.Fraction <= closestHit.Fraction)
                             {
-                                // only accept closest hit so far
-                                if (hit.Fraction <= closestHit.Fraction)
+                                // Accept hit if it's the new closest one, or if equal distance but more obstructing
+                                var isCloserThanPreviousSelectedHit = hit.Fraction < closestHit.Fraction;
+                                if (isCloserThanPreviousSelectedHit || dotRatio < dotRatioOfSelectedHit)
                                 {
-                                    // Accept hit if it's the new closest one, or if equal distance but more obstructing
-                                    var isCloserThanPreviousSelectedHit = hit.Fraction < closestHit.Fraction;
-                                    if (isCloserThanPreviousSelectedHit || dotRatio < dotRatioOfSelectedHit)
-                                    {
-                                        closestHit = hit;
-                                        dotRatioOfSelectedHit = dotRatio;
-                                    }
+                                    closestHit = hit;
+                                    dotRatioOfSelectedHit = dotRatio;
                                 }
                             }
                         }
@@ -416,7 +429,7 @@ namespace Character.Kinematic
         /// </summary>
         /// <param name="processor"> The struct implementing <see cref="IKinematicCharacterProcessor{C}"/> </param>
         /// <param name="context"> The user context struct holding global data meant to be accessed during the character update </param>
-        /// <param name="baseContext"> The built-in context struct holding global data meant to be accessed during the character update </param> 
+        /// <param name="baseContext"> The built-in context struct holding global data meant to be accessed during the character update </param>
         /// <param name="hits"> The list of hits to filter </param>
         /// <param name="onlyObstructingHits"> Should the cast only detect hits whose normal is opposed to the direction of the cast </param>
         /// <param name="castDirection"> The direction of the ground probing cast </param>
@@ -439,23 +452,22 @@ namespace Character.Kinematic
             closestHit = default;
             closestHit.Fraction = float.MaxValue;
 
-            foreach (var hit in hits)
+            for (var i = 0; i < hits.Length; i++)
             {
-                if (hit.Fraction <= closestHit.Fraction)
+                var hit = hits[i];
+                if (hit.Fraction > closestHit.Fraction) continue;
+                if (hit.Entity != Entity)
                 {
-                    if (hit.Entity != Entity)
+                    if (!ignoreDynamicBodies ||
+                        !PhysicsUtilities.IsBodyDynamic(in baseContext.PhysicsWorld, hit.RigidBodyIndex))
                     {
-                        if (!ignoreDynamicBodies ||
-                            !PhysicsUtilities.IsBodyDynamic(in baseContext.PhysicsWorld, hit.RigidBodyIndex))
+                        // ignore hits if we're going away from them
+                        var dotRatio = math.dot(hit.SurfaceNormal, castDirection);
+                        if (!onlyObstructingHits || dotRatio < -k_DotProductSimilarityEpsilon)
                         {
-                            // ignore hits if we're going away from them
-                            var dotRatio = math.dot(hit.SurfaceNormal, castDirection);
-                            if (!onlyObstructingHits || dotRatio < -k_DotProductSimilarityEpsilon)
+                            if (processor.CanCollideWithHit(ref context, ref baseContext, new BasicHit(hit)))
                             {
-                                if (processor.CanCollideWithHit(ref context, ref baseContext, new BasicHit(hit)))
-                                {
-                                    closestHit = hit;
-                                }
+                                closestHit = hit;
                             }
                         }
                     }
@@ -470,7 +482,7 @@ namespace Character.Kinematic
         /// </summary>
         /// <param name="processor"> The struct implementing <see cref="IKinematicCharacterProcessor{C}"/> </param>
         /// <param name="context"> The user context struct holding global data meant to be accessed during the character update </param>
-        /// <param name="baseContext"> The built-in context struct holding global data meant to be accessed during the character update </param> 
+        /// <param name="baseContext"> The built-in context struct holding global data meant to be accessed during the character update </param>
         /// <param name="hits"> The list of hits to filter </param>
         /// <param name="onlyObstructingHits"> Should the cast only detect hits whose normal is opposed to the direction of the cast </param>
         /// <param name="castDirection"> The direction of the ground probing cast </param>
@@ -520,7 +532,7 @@ namespace Character.Kinematic
         /// </summary>
         /// <param name="processor"> The struct implementing <see cref="IKinematicCharacterProcessor{C}"/> </param>
         /// <param name="context"> The user context struct holding global data meant to be accessed during the character update </param>
-        /// <param name="baseContext"> The built-in context struct holding global data meant to be accessed during the character update </param> 
+        /// <param name="baseContext"> The built-in context struct holding global data meant to be accessed during the character update </param>
         /// <param name="hits"> The list of hits to filter </param>
         /// <param name="closestHit"> The closest valid hit </param>
         /// <param name="closestDynamicHit"> The closest valid dynamic hit </param>
@@ -580,7 +592,7 @@ namespace Character.Kinematic
         /// </summary>
         /// <param name="processor"> The struct implementing <see cref="IKinematicCharacterProcessor{C}"/> </param>
         /// <param name="context"> The user context struct holding global data meant to be accessed during the character update </param>
-        /// <param name="baseContext"> The built-in context struct holding global data meant to be accessed during the character update </param> 
+        /// <param name="baseContext"> The built-in context struct holding global data meant to be accessed during the character update </param>
         /// <param name="hits"> The list of hits to filter </param>
         /// <param name="ignoreDynamicBodies"> Should the cast ignore dynamic bodies </param>
         /// <param name="closestHit"> The closest valid hit </param>
@@ -599,19 +611,18 @@ namespace Character.Kinematic
             closestHit = default;
             closestHit.Fraction = float.MaxValue;
 
-            foreach (var hit in hits)
+            for (var i = 0; i < hits.Length; i++)
             {
-                if (hit.Distance < closestHit.Distance)
+                var hit = hits[i];
+                if (hit.Distance >= closestHit.Distance) continue;
+                if (hit.Entity != Entity)
                 {
-                    if (hit.Entity != Entity)
+                    if (!ignoreDynamicBodies ||
+                        !PhysicsUtilities.IsBodyDynamic(in baseContext.PhysicsWorld, hit.RigidBodyIndex))
                     {
-                        if (!ignoreDynamicBodies ||
-                            !PhysicsUtilities.IsBodyDynamic(in baseContext.PhysicsWorld, hit.RigidBodyIndex))
+                        if (processor.CanCollideWithHit(ref context, ref baseContext, new BasicHit(hit)))
                         {
-                            if (processor.CanCollideWithHit(ref context, ref baseContext, new BasicHit(hit)))
-                            {
-                                closestHit = hit;
-                            }
+                            closestHit = hit;
                         }
                     }
                 }
@@ -625,7 +636,7 @@ namespace Character.Kinematic
         /// </summary>
         /// <param name="processor"> The struct implementing <see cref="IKinematicCharacterProcessor{C}"/> </param>
         /// <param name="context"> The user context struct holding global data meant to be accessed during the character update </param>
-        /// <param name="baseContext"> The built-in context struct holding global data meant to be accessed during the character update </param> 
+        /// <param name="baseContext"> The built-in context struct holding global data meant to be accessed during the character update </param>
         /// <param name="hits"> The list of hits to filter </param>
         /// <param name="ignoreDynamicBodies"> Should the cast ignore dynamic bodies </param>
         /// <typeparam name="T"> The type of the struct implementing <see cref="IKinematicCharacterProcessor{C}"/> </typeparam>
@@ -666,7 +677,7 @@ namespace Character.Kinematic
         /// </summary>
         /// <param name="processor"> The struct implementing <see cref="IKinematicCharacterProcessor{C}"/> </param>
         /// <param name="context"> The user context struct holding global data meant to be accessed during the character update </param>
-        /// <param name="baseContext"> The built-in context struct holding global data meant to be accessed during the character update </param> 
+        /// <param name="baseContext"> The built-in context struct holding global data meant to be accessed during the character update </param>
         /// <param name="hits"> The list of hits to filter </param>
         /// <param name="ignoreDynamicBodies"> Should the cast ignore dynamic bodies </param>
         /// <param name="closestHit"> The closest valid hit </param>
@@ -685,19 +696,18 @@ namespace Character.Kinematic
             closestHit = default;
             closestHit.Fraction = float.MaxValue;
 
-            foreach (var hit in hits)
+            for (var i = 0; i < hits.Length; i++)
             {
-                if (hit.Fraction < closestHit.Fraction)
+                var hit = hits[i];
+                if (hit.Fraction >= closestHit.Fraction) continue;
+                if (hit.Entity != Entity)
                 {
-                    if (hit.Entity != Entity)
+                    if (!ignoreDynamicBodies ||
+                        !PhysicsUtilities.IsBodyDynamic(in baseContext.PhysicsWorld, hit.RigidBodyIndex))
                     {
-                        if (!ignoreDynamicBodies ||
-                            !PhysicsUtilities.IsBodyDynamic(in baseContext.PhysicsWorld, hit.RigidBodyIndex))
+                        if (processor.CanCollideWithHit(ref context, ref baseContext, new BasicHit(hit)))
                         {
-                            if (processor.CanCollideWithHit(ref context, ref baseContext, new BasicHit(hit)))
-                            {
-                                closestHit = hit;
-                            }
+                            closestHit = hit;
                         }
                     }
                 }
@@ -711,7 +721,7 @@ namespace Character.Kinematic
         /// </summary>
         /// <param name="processor"> The struct implementing <see cref="IKinematicCharacterProcessor{C}"/> </param>
         /// <param name="context"> The user context struct holding global data meant to be accessed during the character update </param>
-        /// <param name="baseContext"> The built-in context struct holding global data meant to be accessed during the character update </param> 
+        /// <param name="baseContext"> The built-in context struct holding global data meant to be accessed during the character update </param>
         /// <param name="hits"> The list of hits to filter </param>
         /// <param name="ignoreDynamicBodies"> Should the cast ignore dynamic bodies </param>
         /// <typeparam name="T"> The type of the struct implementing <see cref="IKinematicCharacterProcessor{C}"/> </typeparam>

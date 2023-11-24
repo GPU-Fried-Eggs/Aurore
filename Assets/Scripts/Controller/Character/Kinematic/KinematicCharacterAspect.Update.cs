@@ -13,7 +13,7 @@ namespace Character.Kinematic
         /// </summary>
         /// <param name="processor"> The struct implementing <see cref="IKinematicCharacterProcessor{C}"/> </param>
         /// <param name="context"> The user context struct holding global data meant to be accessed during the character update </param>
-        /// <param name="baseContext"> The built-in context struct holding global data meant to be accessed during the character update </param> 
+        /// <param name="baseContext"> The built-in context struct holding global data meant to be accessed during the character update </param>
         /// <param name="characterBody"> The character body component </param>
         /// <param name="deltaTime"> The time delta of the character update </param>
         /// <typeparam name="T"> The type of the struct implementing <see cref="IKinematicCharacterProcessor{C}"/> </typeparam>
@@ -29,15 +29,15 @@ namespace Character.Kinematic
             CharacterHitsBuffer.Clear();
             DeferredImpulsesBuffer.Clear();
             VelocityProjectionHits.Clear();
-            
+
             characterBody.WasGroundedBeforeCharacterUpdate = characterBody.IsGrounded;
             characterBody.PreviousParentEntity = characterBody.ParentEntity;
-            
+
             characterBody.RotationFromParent = quaternion.identity;
             characterBody.IsGrounded = false;
             characterBody.GroundHit = default;
             characterBody.LastPhysicsUpdateDeltaTime = deltaTime;
-            
+
             processor.UpdateGroundingUp(ref context, ref baseContext);
         }
 
@@ -46,7 +46,7 @@ namespace Character.Kinematic
         /// </summary>
         /// <param name="processor"> The struct implementing <see cref="IKinematicCharacterProcessor{C}"/> </param>
         /// <param name="context"> The user context struct holding global data meant to be accessed during the character update </param>
-        /// <param name="baseContext"> The built-in context struct holding global data meant to be accessed during the character update </param> 
+        /// <param name="baseContext"> The built-in context struct holding global data meant to be accessed during the character update </param>
         /// <param name="characterBody"> The character body component </param>
         /// <param name="characterPosition"> The position of the character </param>
         /// <param name="constrainRotationToGroundingUp"> Whether or not to limit rotation around the grounding up direction </param>
@@ -61,7 +61,9 @@ namespace Character.Kinematic
             where T : unmanaged, IKinematicCharacterProcessor<C>
             where C : unmanaged
         {
-            var characterRotation = LocalTransform.ValueRO.Rotation;
+            var characterTransform = LocalTransform.ValueRO;
+            var characterRotation = characterTransform.Rotation;
+            var characterScale = characterTransform.Scale;
             var characterData = CharacterData.ValueRO;
             var characterPhysicsCollider = PhysicsCollider.ValueRO;
 
@@ -107,8 +109,9 @@ namespace Character.Kinematic
                     var castDirection = math.normalizesafe(displacementFromParentMovement);
                     var castLength = math.length(displacementFromParentMovement);
 
-                    var castInput = new ColliderCastInput(characterPhysicsCollider.Value, characterPosition,
-                        characterPosition + (castDirection * castLength), characterRotation);
+                    var endPosition = characterPosition + (castDirection * castLength);
+
+                    var castInput = new ColliderCastInput(characterPhysicsCollider.Value, characterPosition, endPosition, characterRotation, characterScale);
                     baseContext.TmpColliderCastHits.Clear();
                     var collector = new AllHitsCollector<ColliderCastHit>(1f, ref baseContext.TmpColliderCastHits);
                     baseContext.PhysicsWorld.CastCollider(castInput, ref collector);
@@ -138,7 +141,7 @@ namespace Character.Kinematic
         /// </summary>
         /// <param name="processor"> The struct implementing <see cref="IKinematicCharacterProcessor{C}"/> </param>
         /// <param name="context"> The user context struct holding global data meant to be accessed during the character update </param>
-        /// <param name="baseContext"> The built-in context struct holding global data meant to be accessed during the character update </param> 
+        /// <param name="baseContext"> The built-in context struct holding global data meant to be accessed during the character update </param>
         /// <param name="characterBody"> The character body component </param>
         /// <param name="characterPosition"> The position of the character </param>
         /// <typeparam name="T"> The type of the struct implementing <see cref="IKinematicCharacterProcessor{C}"/> </typeparam>
@@ -163,13 +166,8 @@ namespace Character.Kinematic
                     ? characterData.GroundSnappingDistance
                     : k_CollisionOffset * 3f;
 
-                GroundDetection(in processor,
-                    ref context,
-                    ref baseContext,
-                    groundDetectionLength,
-                    out newIsGrounded,
-                    out newGroundHit,
-                    out var distanceToGround);
+                GroundDetection(in processor, ref context, ref baseContext, groundDetectionLength,
+                    out newIsGrounded, out newGroundHit, out var distanceToGround);
 
                 // Ground snapping
                 if (characterData.SnapToGround && newIsGrounded)
@@ -210,7 +208,7 @@ namespace Character.Kinematic
         /// </summary>
         /// <param name="processor"> The struct implementing <see cref="IKinematicCharacterProcessor{C}"/> </param>
         /// <param name="context"> The user context struct holding global data meant to be accessed during the character update </param>
-        /// <param name="baseContext"> The built-in context struct holding global data meant to be accessed during the character update </param> 
+        /// <param name="baseContext"> The built-in context struct holding global data meant to be accessed during the character update </param>
         /// <param name="characterBody"> The character body component </param>
         /// <param name="characterPosition"> The position of the character </param>
         /// <typeparam name="T"> The type of the struct implementing <see cref="IKinematicCharacterProcessor{C}"/> </typeparam>
@@ -229,7 +227,7 @@ namespace Character.Kinematic
             MoveWithCollisions(in processor, ref context, ref baseContext, ref characterBody, ref characterPosition,
                 originalVelocityDirectionBeforeMove, out var moveConfirmedThereWereNoOverlaps);
 
-            // This has to be after movement has been processed, in order to let our movement to take us 
+            // This has to be after movement has been processed, in order to let our movement to take us
             // out of the collision with a platform before we try to decollide from it
             if (characterData.DecollideFromOverlaps && !moveConfirmedThereWereNoOverlaps)
                 SolveOverlaps(in processor, ref context, ref baseContext, ref characterBody, ref characterPosition,
@@ -245,7 +243,7 @@ namespace Character.Kinematic
         /// </summary>
         /// <param name="processor"> The struct implementing <see cref="IKinematicCharacterProcessor{C}"/> </param>
         /// <param name="context"> The user context struct holding global data meant to be accessed during the character update </param>
-        /// <param name="baseContext"> The built-in context struct holding global data meant to be accessed during the character update </param> 
+        /// <param name="baseContext"> The built-in context struct holding global data meant to be accessed during the character update </param>
         /// <param name="characterBody"> The character body component </param>
         /// <param name="stepAndSlopeHandling"> Parameters for step and slope handling </param>
         /// <param name="slopeDetectionVerticalOffset"> The vertical distance from ground hit at which slope detection raycasts will start </param>
@@ -295,7 +293,7 @@ namespace Character.Kinematic
         /// </summary>
         /// <param name="processor"> The struct implementing <see cref="IKinematicCharacterProcessor{C}"/> </param>
         /// <param name="context"> The user context struct holding global data meant to be accessed during the character update </param>
-        /// <param name="baseContext"> The built-in context struct holding global data meant to be accessed during the character update </param> 
+        /// <param name="baseContext"> The built-in context struct holding global data meant to be accessed during the character update </param>
         /// <param name="gravity"> The effective gravity used to create a force to apply to the ground, in combination with the character mass </param>
         /// <param name="forceMultiplier"> An arbitrary multiplier to apply to the calculated force to apply to the ground </param>
         /// <typeparam name="T"> The type of the struct implementing <see cref="IKinematicCharacterProcessor{C}"/> </typeparam>
@@ -308,8 +306,9 @@ namespace Character.Kinematic
             where T : unmanaged, IKinematicCharacterProcessor<C>
             where C : unmanaged
         {
-            var characterRotation = LocalTransform.ValueRO.Rotation;
-            var characterPosition = LocalTransform.ValueRO.Position;
+            var characterTransform = LocalTransform.ValueRO;
+            var characterRotation = characterTransform.Rotation;
+            var characterPosition = characterTransform.Position;
             var characterData = CharacterData.ValueRO;
             var characterBody = CharacterBody.ValueRO;
 
@@ -373,7 +372,7 @@ namespace Character.Kinematic
         /// <summary>
         /// Handles detecting valid moving platforms based on current ground hit, and automatically sets them as the character's parent entity
         /// </summary>
-        /// <param name="baseContext"> The built-in context struct holding global data meant to be accessed during the character update </param> 
+        /// <param name="baseContext"> The built-in context struct holding global data meant to be accessed during the character update </param>
         /// <param name="characterBody"> The character body component </param>
         public void MovingPlatformDetectionUpdate(ref KinematicCharacterUpdateContext baseContext, ref KinematicCharacterBody characterBody)
         {
@@ -421,8 +420,7 @@ namespace Character.Kinematic
 
                     if (characterBody.IsGrounded)
                     {
-                        ProjectVelocityOnGrounding(ref characterBody.RelativeVelocity, characterBody.GroundHit.Normal,
-                            characterBody.GroundingUp);
+                        ProjectVelocityOnGrounding(ref characterBody.RelativeVelocity, characterBody.GroundHit.Normal, characterBody.GroundingUp);
                     }
                 }
             }
@@ -479,8 +477,7 @@ namespace Character.Kinematic
                     continue;
 
                 var newStatefulHit = new StatefulKinematicCharacterHit(characterHit);
-                var entityWasInStatefulHitsBefore = OldStatefulHitsEntity(in StatefulHitsBuffer, characterHit.Entity,
-                    lastIndexOfOldStatefulHits, out var oldHitState);
+                var entityWasInStatefulHitsBefore = OldStatefulHitsEntity(in StatefulHitsBuffer, characterHit.Entity, lastIndexOfOldStatefulHits, out var oldHitState);
 
                 if (entityWasInStatefulHitsBefore)
                 {
@@ -505,14 +502,14 @@ namespace Character.Kinematic
                 StatefulHitsBuffer.Add(newStatefulHit);
             }
 
-            // Detect Exit states 
+            // Detect Exit states
             for (var i = 0; i <= lastIndexOfOldStatefulHits; i++)
             {
                 var oldStatefulHit = StatefulHitsBuffer[i];
 
                 // If an old hit entity isn't in new hits, add as Exit state
-                if (oldStatefulHit.State == CharacterHitState.Exit || NewStatefulHitsEntity(in StatefulHitsBuffer,
-                        oldStatefulHit.Hit.Entity, lastIndexOfOldStatefulHits + 1))
+                if (oldStatefulHit.State == CharacterHitState.Exit ||
+                    NewStatefulHitsEntity(in StatefulHitsBuffer, oldStatefulHit.Hit.Entity, lastIndexOfOldStatefulHits + 1))
                     continue;
 
                 oldStatefulHit.State = CharacterHitState.Exit;

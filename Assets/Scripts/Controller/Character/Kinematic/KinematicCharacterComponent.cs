@@ -282,7 +282,7 @@ namespace Character.Kinematic
                 RelativeVelocity = default,
                 ParentEntity = default,
                 ParentLocalAnchorPoint = default,
-            
+
                 GroundingUp = math.up(),
                 GroundHit = default,
                 ParentVelocity = default,

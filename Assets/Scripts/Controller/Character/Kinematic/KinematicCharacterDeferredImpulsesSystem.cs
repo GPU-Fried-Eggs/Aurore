@@ -61,20 +61,23 @@ namespace Character.Kinematic
                     }
                     else
                     {
-                        var bodyPhysicsVelocity = PhysicsVelocityLookup[deferredImpulse.OnEntity];
+                        if (PhysicsVelocityLookup.TryGetComponent(deferredImpulse.OnEntity, out var bodyPhysicsVelocity))
+                        {
+                            bodyPhysicsVelocity.Linear += deferredImpulse.LinearVelocityChange;
+                            bodyPhysicsVelocity.Angular += deferredImpulse.AngularVelocityChange;
 
-                        bodyPhysicsVelocity.Linear += deferredImpulse.LinearVelocityChange;
-                        bodyPhysicsVelocity.Angular += deferredImpulse.AngularVelocityChange;
-
-                        PhysicsVelocityLookup[deferredImpulse.OnEntity] = bodyPhysicsVelocity;
+                            PhysicsVelocityLookup[deferredImpulse.OnEntity] = bodyPhysicsVelocity;
+                        }
                     }
 
                     // Displacement
                     if (math.lengthsq(deferredImpulse.Displacement) > 0f)
                     {
-                        var bodyTransform = TransformLookup[deferredImpulse.OnEntity];
-                        bodyTransform.Position += deferredImpulse.Displacement;
-                        TransformLookup[deferredImpulse.OnEntity] = bodyTransform;
+                        if (TransformLookup.TryGetComponent(deferredImpulse.OnEntity, out var bodyTransform))
+                        {
+                            bodyTransform.Position += deferredImpulse.Displacement;
+                            TransformLookup[deferredImpulse.OnEntity] = bodyTransform;
+                        }
                     }
                 }
             }

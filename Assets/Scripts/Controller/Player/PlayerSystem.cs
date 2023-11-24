@@ -7,11 +7,12 @@ using Unity.Mathematics;
 using Unity.NetCode;
 using Unity.Transforms;
 using UnityEngine;
+using Utilities;
 
 namespace Player
 {
     [UpdateInGroup(typeof(GhostInputSystemGroup))]
-    [WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation | WorldSystemFilterFlags.ThinClientSimulation)]
+    [WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation)]
     public partial class PlayerInputsSystem : SystemBase
     {
         private PlayerInputActions.GameplayMapActions m_DefaultActionsMap;
@@ -24,14 +25,13 @@ namespace Player
             m_DefaultActionsMap = inputActions.GameplayMap;
 
             RequireForUpdate(SystemAPI.QueryBuilder().WithAll<PlayerData, PlayerInputs>().Build());
-            RequireForUpdate<NetworkTime>();   
-            RequireForUpdate<NetworkId>();   
+            RequireForUpdate<NetworkTime>();
         }
 
         protected override void OnUpdate()
         {
-            foreach (var (playerInputs, player, ghostOwner, entity) in SystemAPI
-                         .Query<RefRW<PlayerInputs>, PlayerData, GhostOwner>()
+            foreach (var (playerInputs, player, entity) in SystemAPI
+                         .Query<RefRW<PlayerInputs>, RefRW<PlayerData>>()
                          .WithAll<GhostOwnerIsLocal>()
                          .WithEntityAccess())
             {
@@ -39,47 +39,63 @@ namespace Player
                 if (math.lengthsq(m_DefaultActionsMap.LookConst.ReadValue<Vector2>()) >
                     math.lengthsq(m_DefaultActionsMap.LookDelta.ReadValue<Vector2>()))
                 {
-                    playerInputs.ValueRW.Look = m_DefaultActionsMap.LookConst.ReadValue<Vector2>() * SystemAPI.Time.DeltaTime;
+                    var inputDelta = m_DefaultActionsMap.LookConst.ReadValue<Vector2>() * SystemAPI.Time.DeltaTime;
+                    NetworkInputUtilities.AddInputDelta(ref playerInputs.ValueRW.Look.x, inputDelta.x);
+                    NetworkInputUtilities.AddInputDelta(ref playerInputs.ValueRW.Look.y, inputDelta.y);
                 }
                 else
                 {
-                    playerInputs.ValueRW.Look = m_DefaultActionsMap.LookDelta.ReadValue<Vector2>();
+                    var inputDelta = m_DefaultActionsMap.LookDelta.ReadValue<Vector2>();
+                    NetworkInputUtilities.AddInputDelta(ref playerInputs.ValueRW.Look.x, inputDelta.x);
+                    NetworkInputUtilities.AddInputDelta(ref playerInputs.ValueRW.Look.y, inputDelta.y);
                 }
                 playerInputs.ValueRW.CameraZoom = m_DefaultActionsMap.CameraZoom.ReadValue<float>();
                 playerInputs.ValueRW.SprintHeld = m_DefaultActionsMap.Sprint.IsPressed();
                 playerInputs.ValueRW.JumpHeld = m_DefaultActionsMap.Jump.IsPressed();
 
+                playerInputs.ValueRW.JumpPressed = default;
                 if (m_DefaultActionsMap.Jump.WasPressedThisFrame())
                     playerInputs.ValueRW.JumpPressed.Set();
+                playerInputs.ValueRW.GodModePressed = default;
                 if (m_DefaultActionsMap.GodMode.WasPressedThisFrame())
                     playerInputs.ValueRW.GodModePressed.Set();
             }
         }
     }
 
-    [UpdateInGroup(typeof(PredictedFixedStepSimulationSystemGroup), OrderFirst = true)]
+    [UpdateInGroup(typeof(PredictedSimulationSystemGroup))]
     [UpdateBefore(typeof(CharacterVariableUpdateSystem))]
+    [UpdateAfter(typeof(PredictedFixedStepSimulationSystemGroup))]
     [BurstCompile]
     public partial struct PlayerVariableStepControlSystem : ISystem
     {
         [BurstCompile]
         public void OnCreate(ref SystemState state)
         {
+            state.RequireForUpdate<NetworkTime>();
             state.RequireForUpdate(SystemAPI.QueryBuilder().WithAll<PlayerData, PlayerInputs>().Build());
         }
 
         [BurstCompile]
         public void OnUpdate(ref SystemState state)
         {
-            foreach (var (playerInputs, player) in SystemAPI.Query<PlayerInputs, PlayerData>().WithAll<Simulate>())
+            NetworkInputUtilities.GetCurrentAndPreviousTick(SystemAPI.GetSingleton<NetworkTime>(), out var currentTick, out var previousTick);
+
+            foreach (var (playerInputsBuffer, player) in SystemAPI
+                         .Query<DynamicBuffer<InputBufferData<PlayerInputs>>, PlayerData>()
+                         .WithAll<Simulate>())
             {
+                NetworkInputUtilities.GetCurrentAndPreviousTickInputs(playerInputsBuffer, currentTick, previousTick,
+                    out var currentTickInputs, out var previousTickInputs);
+
                 if (SystemAPI.HasComponent<OrbitCameraControl>(player.ControlledCamera))
                 {
                     var cameraControl = SystemAPI.GetComponent<OrbitCameraControl>(player.ControlledCamera);
                 
                     cameraControl.FollowedCharacterEntity = player.ControlledCharacter;
-                    cameraControl.Look = playerInputs.Look;
-                    cameraControl.Zoom = playerInputs.CameraZoom;
+                    cameraControl.LookDegreesDelta.x = NetworkInputUtilities.GetInputDelta(currentTickInputs.Look.x, previousTickInputs.Look.x);
+                    cameraControl.LookDegreesDelta.y = NetworkInputUtilities.GetInputDelta(currentTickInputs.Look.y, previousTickInputs.Look.y);
+                    cameraControl.ZoomDelta = NetworkInputUtilities.GetInputDelta(currentTickInputs.CameraZoom, previousTickInputs.CameraZoom);
                 
                     SystemAPI.SetComponent(player.ControlledCamera, cameraControl);
                 }

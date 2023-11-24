@@ -28,8 +28,8 @@ namespace Character.Kinematic
         /// Determines if a hit can be collided with or not.
         /// </summary>
         /// <param name="context"> The user context struct holding global data meant to be accessed during the character update </param>
-        /// <param name="baseContext"> The built-in context struct holding global data meant to be accessed during the character update </param> 
-        /// <param name="hit"> The evaluated hit </param> 
+        /// <param name="baseContext"> The built-in context struct holding global data meant to be accessed during the character update </param>
+        /// <param name="hit"> The evaluated hit </param>
         /// <returns> Return true if the hit can be collided with, return false if not. </returns>
         bool CanCollideWithHit(ref C context, ref KinematicCharacterUpdateContext baseContext, in BasicHit hit);
 
@@ -37,8 +37,8 @@ namespace Character.Kinematic
         /// Determines if the character can be grounded the hit or not.
         /// </summary>
         /// <param name="context"> The user context struct holding global data meant to be accessed during the character update </param>
-        /// <param name="baseContext"> The built-in context struct holding global data meant to be accessed during the character update </param> 
-        /// <param name="hit"> The evaluated hit </param> 
+        /// <param name="baseContext"> The built-in context struct holding global data meant to be accessed during the character update </param>
+        /// <param name="hit"> The evaluated hit </param>
         /// <param name="groundingEvaluationType"> An identifier meant to indicate what type of grounding evaluation is being done at the moment of calling this. </param>
         /// <returns></returns>
         bool IsGroundedOnHit(ref C context,
@@ -50,8 +50,8 @@ namespace Character.Kinematic
         /// Determines what happens when the character detects a hit during its movement phase.
         /// </summary>
         /// <param name="context"> The user context struct holding global data meant to be accessed during the character update </param>
-        /// <param name="baseContext"> The built-in context struct holding global data meant to be accessed during the character update </param> 
-        /// <param name="hit"> The evaluated hit </param> 
+        /// <param name="baseContext"> The built-in context struct holding global data meant to be accessed during the character update </param>
+        /// <param name="hit"> The evaluated hit </param>
         /// <param name="remainingMovementDirection"> The direction of the movement vector that remains to be processed </param>
         /// <param name="remainingMovementLength"> The magnitude of the movement vector that remains to be processed </param>
         /// <param name="originalVelocityDirection"> The original direction of the movement vector before any movement projection happened </param>
@@ -68,7 +68,7 @@ namespace Character.Kinematic
         /// Requests that the character velocity be projected on the hits detected so far in the character update.
         /// </summary>
         /// <param name="context"> The user context struct holding global data meant to be accessed during the character update </param>
-        /// <param name="baseContext"> The built-in context struct holding global data meant to be accessed during the character update </param> 
+        /// <param name="baseContext"> The built-in context struct holding global data meant to be accessed during the character update </param>
         /// <param name="velocity"> The character velocity that needs to be projected </param>
         /// <param name="characterIsGrounded"> Whether the character is grounded or not </param>
         /// <param name="characterGroundHit"> The current effective ground hit of the character </param>
@@ -86,7 +86,7 @@ namespace Character.Kinematic
         /// Provides an opportunity to modify the physics masses used to solve impulses between characters and detected hit bodies.
         /// </summary>
         /// <param name="context"> The user context struct holding global data meant to be accessed during the character update </param>
-        /// <param name="baseContext"> The built-in context struct holding global data meant to be accessed during the character update </param> 
+        /// <param name="baseContext"> The built-in context struct holding global data meant to be accessed during the character update </param>
         /// <param name="characterMass"> The mass of the character </param>
         /// <param name="otherMass"> The mass of the other body that we've detected a hit with </param>
         /// <param name="hit"> The evaluated hit with the dynamic body </param>
@@ -112,7 +112,7 @@ namespace Character.Kinematic
         /// The character body component
         /// </summary>
         public KinematicCharacterBody SavedCharacterBody;
-        
+
         /// <summary>
         /// Size of the saved physics collider, in bytes
         /// </summary>
@@ -159,7 +159,7 @@ namespace Character.Kinematic
         /// </summary>
         [NativeDisableContainerSafetyRestriction]
         public NativeArray<KinematicVelocityProjectionHit> SavedVelocityProjectionHits;
-        
+
         /// <summary>
         /// Saves the character state. Only reallocates data arrays if the current arrays are not allocated or don't have the required capacity
         /// </summary>
@@ -224,7 +224,7 @@ namespace Character.Kinematic
             characterAspect.VelocityProjectionHits.ResizeUninitialized(SavedVelocityProjectionHitsCount);
             UnsafeUtility.MemCpy(characterAspect.VelocityProjectionHits.GetUnsafePtr(), SavedVelocityProjectionHits.GetUnsafePtr(), SavedVelocityProjectionHitsCount);
         }
-        
+
         /// <summary>
         /// Disposes all data arrays stored in the character state save
         /// </summary>
@@ -299,7 +299,7 @@ namespace Character.Kinematic
         public NativeList<int> TmpRigidbodyIndexesProcessed;
 
         /// <summary>
-        /// Provides an opportunity to get and store global data at the moment of a system's creation 
+        /// Provides an opportunity to get and store global data at the moment of a system's creation
         /// </summary>
         /// <param name="state"> The state of the system calling this method </param>
         public void OnSystemCreate(ref SystemState state)
@@ -377,7 +377,7 @@ namespace Character.Kinematic
         [Tooltip("Max slope change that the character can stay grounded on (degrees)")]
         [Range(0f, 180f)]
         public float MaxDownwardSlopeChangeAngle;
-        
+
 
         [Header("Misc")]
         [Tooltip("Whether or not to constrain the character velocity to ground plane when it hits a non-grounded slope")]
@@ -480,7 +480,7 @@ namespace Character.Kinematic
         /// The <see cref="KinematicVelocityProjectionHit"/> dynamic buffer of the character entity
         /// </summary>
         public readonly DynamicBuffer<KinematicVelocityProjectionHit> VelocityProjectionHits;
-        
+
         /// <summary>
         /// Returns the forward direction of the character transform
         /// </summary>
@@ -516,7 +516,7 @@ namespace Character.Kinematic
         /// </summary>
         /// <param name="processor"> The struct implementing <see cref="IKinematicCharacterProcessor{C}"/> </param>
         /// <param name="context"> The user context struct holding global data meant to be accessed during the character update </param>
-        /// <param name="baseContext"> The built-in context struct holding global data meant to be accessed during the character update </param> 
+        /// <param name="baseContext"> The built-in context struct holding global data meant to be accessed during the character update </param>
         /// <param name="groundProbingLength"> Ground probing collider cast distance </param>
         /// <param name="isGrounded"> Outputs whether or not valid ground was detected </param>
         /// <param name="groundHit"> Outputs the detected ground hit </param>
@@ -525,7 +525,7 @@ namespace Character.Kinematic
         /// <typeparam name="C"> The type of the user-created context struct </typeparam>
         public unsafe void GroundDetection<T, C>(in T processor,
             ref C context,
-            ref KinematicCharacterUpdateContext baseContext, 
+            ref KinematicCharacterUpdateContext baseContext,
             float groundProbingLength,
             out bool isGrounded,
             out BasicHit groundHit,
@@ -536,23 +536,27 @@ namespace Character.Kinematic
             isGrounded = false;
             groundHit = default;
             distanceToGround = 0f;
-            
-            var characterRotation = LocalTransform.ValueRO.Rotation;
-            var characterPosition = LocalTransform.ValueRO.Position;
+
+            var characterTransform = LocalTransform.ValueRO;
+            var characterRotation = characterTransform.Rotation;
+            var characterPosition = characterTransform.Position;
+            var characterScale = characterTransform.Scale;
             var characterBody = CharacterBody.ValueRO;
             var characterData = CharacterData.ValueRO;
             var characterPhysicsCollider = PhysicsCollider.ValueRO;
 
             var input = new ColliderCastInput(characterPhysicsCollider.Value, characterPosition,
                 characterPosition + (-characterBody.GroundingUp * groundProbingLength),
-                characterRotation);
+                characterRotation, characterScale);
+
             baseContext.TmpColliderCastHits.Clear();
             var collector = new AllHitsCollector<ColliderCastHit>(1f, ref baseContext.TmpColliderCastHits);
             baseContext.PhysicsWorld.CastCollider(input, ref collector);
 
             if (FilterColliderCastHitsForGroundProbing(in processor, ref context, ref baseContext,
                     ref baseContext.TmpColliderCastHits, -characterBody.GroundingUp,
-                    characterData.ShouldIgnoreDynamicBodies(), out var closestHit))
+                    characterData.ShouldIgnoreDynamicBodies(),
+                    out var closestHit))
             {
                 // Ground hit is closest hit by default
                 groundHit = new BasicHit(closestHit);
@@ -573,16 +577,16 @@ namespace Character.Kinematic
                         if (baseContext.TmpColliderCastHits.Length > 1)
                         {
                             // Sort hits in ascending fraction order
-                            // TODO: We are doing a sort because, presumably, it would be faster to sort & have potentially less hits to evaluate for grounding
                             baseContext.TmpColliderCastHits.Sort(default(HitFractionComparer));
 
                             foreach (var tmpHit in baseContext.TmpColliderCastHits)
                             {
                                 // Skip if this is our ground hit
-                                if (tmpHit.RigidBodyIndex == groundHit.RigidBodyIndex && tmpHit.ColliderKey.Equals(groundHit.ColliderKey))
+                                if (tmpHit.RigidBodyIndex == groundHit.RigidBodyIndex &&
+                                    tmpHit.ColliderKey.Equals(groundHit.ColliderKey))
                                     continue;
 
-                                //Only accept if within tolerance distance
+                                // Only accept if within tolerance distance
                                 var tmpHitDistance = tmpHit.Fraction * groundProbingLength;
                                 if (math.distancesq(tmpHitDistance, distanceToGround) <= k_GroundedHitDistanceToleranceSq)
                                 {
@@ -593,14 +597,13 @@ namespace Character.Kinematic
                                     {
                                         isGrounded = true;
                                         distanceToGround = tmpHitDistance;
-                                        groundHit = tmpClosestGroundedHit; 
+                                        groundHit = tmpClosestGroundedHit;
                                         break;
                                     }
                                 }
                                 else
                                 {
-                                    // if we're starting to see hits with a distance greater than tolerance dist, give
-                                    // up trying to evaluate hits since the list is sorted in ascending fraction order
+                                    // The list is sorted in ascending fraction order, no need resolve hits with a distance greater than tolerance dist
                                     break;
                                 }
                             }
@@ -619,21 +622,20 @@ namespace Character.Kinematic
                         var otherBodyWorldTransform = math.mul(otherBody.WorldFromBody, leafCollider.TransformFromChild);
                         var characterRelativeToOther = math.mul(math.inverse(otherBodyWorldTransform), characterWorldTransform);
 
-                        var correctionInput = new ColliderDistanceInput(characterPhysicsCollider.Value, 1, characterRelativeToOther);
+                        var correctionInput = new ColliderDistanceInput(characterPhysicsCollider.Value, 1, characterRelativeToOther, characterScale);
                         if (otherBody.Collider.AsPtr()->CalculateDistance(correctionInput, out var correctionHit))
                         {
-                            if(correctionHit.Distance > 0f)
-                            { 
-                                var reconstructedHitNormal = math.mul(otherBodyWorldTransform.rot, correctionHit.SurfaceNormal);
-                                if (math.dot(-reconstructedHitNormal, -characterBody.GroundingUp) > 0f)
+                            if (correctionHit.Distance <= 0f) return;
+
+                            var reconstructedHitNormal = math.mul(otherBodyWorldTransform.rot, correctionHit.SurfaceNormal);
+                            if (math.dot(-reconstructedHitNormal, -characterBody.GroundingUp) > 0f)
+                            {
+                                var angleBetweenGroundingDownAndClosestPointOnOther = math.PI * 0.5f - MathUtilities.AngleRadians(-reconstructedHitNormal, -characterBody.GroundingUp);
+                                var sineAngle = math.sin(angleBetweenGroundingDownAndClosestPointOnOther);
+                                if(sineAngle > 0f)
                                 {
-                                    var angleBetweenGroundingDownAndClosestPointOnOther = math.PI * 0.5f - MathUtilities.AngleRadians(-reconstructedHitNormal, -characterBody.GroundingUp);
-                                    var sineAngle = math.sin(angleBetweenGroundingDownAndClosestPointOnOther);
-                                    if(sineAngle > 0f)
-                                    {
-                                        var correctedDistance = correctionHit.Distance / math.sin(angleBetweenGroundingDownAndClosestPointOnOther);
-                                        distanceToGround = math.clamp(correctedDistance, 0f, k_CollisionOffset);
-                                    }
+                                    var correctedDistance = correctionHit.Distance / math.sin(angleBetweenGroundingDownAndClosestPointOnOther);
+                                    distanceToGround = math.clamp(correctedDistance, 0f, k_CollisionOffset);
                                 }
                             }
                         }
@@ -647,7 +649,7 @@ namespace Character.Kinematic
         /// </summary>
         /// <param name="processor"> The struct implementing <see cref="IKinematicCharacterProcessor{C}"/> </param>
         /// <param name="context"> The user context struct holding global data meant to be accessed during the character update </param>
-        /// <param name="baseContext"> The built-in context struct holding global data meant to be accessed during the character update </param> 
+        /// <param name="baseContext"> The built-in context struct holding global data meant to be accessed during the character update </param>
         /// <param name="characterBody"> The character body component </param>
         /// <typeparam name="T"> The type of the struct implementing <see cref="IKinematicCharacterProcessor{C}"/> </typeparam>
         /// <typeparam name="C"> The type of the user-created context struct </typeparam>
@@ -658,8 +660,9 @@ namespace Character.Kinematic
             where T : unmanaged, IKinematicCharacterProcessor<C>
             where C : unmanaged
         {
-            var characterRotation = LocalTransform.ValueRO.Rotation;
-            var characterPosition = LocalTransform.ValueRO.Position;
+            var characterTransform = LocalTransform.ValueRO;
+            var characterRotation = characterTransform.Rotation;
+            var characterPosition = characterTransform.Position;
             var characterData = CharacterData.ValueRO;
 
             baseContext.TmpRigidbodyIndexesProcessed.Clear();
@@ -672,137 +675,137 @@ namespace Character.Kinematic
                 var hitBody = baseContext.PhysicsWorld.Bodies[hitBodyIndex];
                 var hitBodyEntity = hitBody.Entity;
 
-                if (hitBodyEntity != characterBody.ParentEntity)
+                if (hitBodyEntity == characterBody.ParentEntity) continue;
+
+                var bodyHasPhysicsVelocityAndMass = PhysicsUtilities.DoesBodyHavePhysicsVelocityAndMass(in baseContext.PhysicsWorld, hitBodyIndex);
+                if (bodyHasPhysicsVelocityAndMass)
                 {
-                    var bodyHasPhysicsVelocityAndMass = PhysicsUtilities.DoesBodyHavePhysicsVelocityAndMass(in baseContext.PhysicsWorld, hitBodyIndex);
-                    if (bodyHasPhysicsVelocityAndMass)
+                    if (baseContext.TmpRigidbodyIndexesProcessed.Contains(characterHit.RigidBodyIndex))
+                        continue;
+
+                    baseContext.TmpRigidbodyIndexesProcessed.Add(characterHit.RigidBodyIndex);
+
+                    var selfPhysicsVelocity = new PhysicsVelocity
                     {
-                        if (!baseContext.TmpRigidbodyIndexesProcessed.Contains(characterHit.RigidBodyIndex))
+                        Linear = characterBody.RelativeVelocity + characterBody.ParentVelocity,
+                        Angular = default
+                    };
+                    var selfPhysicsMass = PhysicsUtilities.GetKinematicCharacterPhysicsMass(characterData);
+                    var selfTransform = new RigidTransform(characterRotation, characterPosition);
+
+                    // Compute other body's data depending on if it's a character or not
+                    var otherIsCharacter = false;
+                    var otherIsDynamic = false;
+                    var otherPhysicsVelocity = new PhysicsVelocity();
+                    var otherPhysicsMass = new PhysicsMass();
+                    var otherTransform = hitBody.WorldFromBody;
+                    if (baseContext.CharacterStoredDataLookup.HasComponent(hitBodyEntity))
+                    {
+                        var data = baseContext.CharacterStoredDataLookup[hitBodyEntity];
+                        otherIsCharacter = true;
+                        otherIsDynamic = data.SimulateDynamicBody;
+                        otherPhysicsVelocity = new PhysicsVelocity
                         {
-                            baseContext.TmpRigidbodyIndexesProcessed.Add(characterHit.RigidBodyIndex);
+                            Linear = data.RelativeVelocity + data.ParentVelocity,
+                            Angular = float3.zero
+                        };
+                        otherPhysicsMass = PhysicsUtilities.GetKinematicCharacterPhysicsMass(baseContext.CharacterStoredDataLookup[hitBodyEntity]);
+                    }
+                    else if (PhysicsUtilities.DoesBodyHavePhysicsVelocityAndMass(in baseContext.PhysicsWorld, hitBodyIndex))
+                    {
+                        PhysicsUtilities.GetBodyComponents(in baseContext.PhysicsWorld, hitBodyIndex, out var transform, out otherPhysicsVelocity, out otherPhysicsMass);
 
-                            var selfPhysicsVelocity = new PhysicsVelocity
-                            {
-                                Linear = characterBody.RelativeVelocity + characterBody.ParentVelocity,
-                                Angular = default
-                            };
-                            var selfPhysicsMass = PhysicsUtilities.GetKinematicCharacterPhysicsMass(characterData);
-                            var selfTransform = new RigidTransform(characterRotation, characterPosition);
+                        otherIsDynamic = otherPhysicsMass.InverseMass > 0f;
+                    }
 
-                            // Compute other body's data depending on if it's a character or not
-                            var otherIsCharacter = false;
-                            var otherIsDynamic = false;
-                            var otherPhysicsVelocity = new PhysicsVelocity();
-                            var otherPhysicsMass = new PhysicsMass();
-                            var otherTransform = hitBody.WorldFromBody;
-                            if (baseContext.CharacterStoredDataLookup.HasComponent(hitBodyEntity))
-                            {
-                                var data = baseContext.CharacterStoredDataLookup[hitBodyEntity];
-                                otherIsCharacter = true;
-                                otherIsDynamic = data.SimulateDynamicBody;
-                                otherPhysicsVelocity = new PhysicsVelocity
-                                {
-                                    Linear = data.RelativeVelocity + data.ParentVelocity,
-                                    Angular = float3.zero
-                                };
-                                otherPhysicsMass = PhysicsUtilities.GetKinematicCharacterPhysicsMass(baseContext.CharacterStoredDataLookup[hitBodyEntity]);
-                            }
-                            else if (PhysicsUtilities.DoesBodyHavePhysicsVelocityAndMass(in baseContext.PhysicsWorld, hitBodyIndex))
-                            {
-                                PhysicsUtilities.GetBodyComponents(in baseContext.PhysicsWorld, hitBodyIndex, out var transform, out otherPhysicsVelocity, out otherPhysicsMass);
+                    // Correct the normal of the hit based on grounding considerations
+                    var effectiveHitNormalFromOtherToSelf = characterHit.Normal;
+                    if (characterHit is { WasCharacterGroundedOnHitEnter: true, IsGroundedOnHit: false })
+                    {
+                        effectiveHitNormalFromOtherToSelf = math.normalizesafe(MathUtilities.ProjectOnPlane(characterHit.Normal, characterBody.GroundingUp));
+                    }
+                    else if (characterHit.IsGroundedOnHit)
+                    {
+                        effectiveHitNormalFromOtherToSelf = characterBody.GroundingUp;
+                    }
+                    // Prevent a grounding-reoriented normal for dynamic bodies
+                    if (otherIsDynamic && !characterHit.IsGroundedOnHit)
+                    {
+                        effectiveHitNormalFromOtherToSelf = characterHit.Normal;
+                    }
 
-                                otherIsDynamic = otherPhysicsMass.InverseMass > 0f;
-                            }
-
-                            // Correct the normal of the hit based on grounding considerations
-                            var effectiveHitNormalFromOtherToSelf = characterHit.Normal;
-                            if (characterHit is { WasCharacterGroundedOnHitEnter: true, IsGroundedOnHit: false })
-                            {
-                                effectiveHitNormalFromOtherToSelf = math.normalizesafe(MathUtilities.ProjectOnPlane(characterHit.Normal, characterBody.GroundingUp));
-                            }
-                            else if (characterHit.IsGroundedOnHit)
-                            {
-                                effectiveHitNormalFromOtherToSelf = characterBody.GroundingUp;
-                            }
-
-                            // Prevent a grounding-reoriented normal for dynamic bodies
-                            if (otherIsDynamic && !characterHit.IsGroundedOnHit)
-                            {
-                                effectiveHitNormalFromOtherToSelf = characterHit.Normal;
-                            }
-
-                            // Mass overrides
-                            if (characterData.SimulateDynamicBody && otherIsDynamic && !otherIsCharacter)
-                            {
-                                if (selfPhysicsMass.InverseMass > 0f && otherPhysicsMass.InverseMass > 0f)
-                                {
-                                    processor.OverrideDynamicHitMasses(ref context, ref baseContext, ref selfPhysicsMass, ref otherPhysicsMass, new BasicHit(characterHit));
-                                }
-                            }
-
-                            // Special cases with kinematic VS kinematic
-                            if (!characterData.SimulateDynamicBody && !otherIsDynamic)
-                            {
-                                // Pretend we have a mass of 1 against a kinematic body
-                                selfPhysicsMass.InverseMass = 1f;
-
-                                // When other is kinematic character, cancel their velocity towards us if any, for the sake of impulse calculations. This prevents bumping
-                                if (otherIsCharacter && math.dot(otherPhysicsVelocity.Linear, effectiveHitNormalFromOtherToSelf) > 0f)
-                                {
-                                    otherPhysicsVelocity.Linear = MathUtilities.ProjectOnPlane(otherPhysicsVelocity.Linear, effectiveHitNormalFromOtherToSelf);
-                                }
-                            }
-
-                            // Restore the portion of the character velocity that got lost during hit projection (so we can re-solve it with dynamics)
-                            var velocityLostInOriginalProjection = math.projectsafe(characterHit.CharacterVelocityBeforeHit - characterHit.CharacterVelocityAfterHit, effectiveHitNormalFromOtherToSelf);
-                            selfPhysicsVelocity.Linear += velocityLostInOriginalProjection;
-
-                            // Solve impulses
-                            PhysicsUtilities.SolveCollisionImpulses(selfPhysicsVelocity,
-                                otherPhysicsVelocity,
-                                selfPhysicsMass,
-                                otherPhysicsMass,
-                                selfTransform,
-                                otherTransform,
-                                characterHit.Position,
-                                effectiveHitNormalFromOtherToSelf,
-                                out var impulseOnSelf,
-                                out var impulseOnOther);
-
-                            // Apply impulse to self
-                            var previousCharacterLinearVel = selfPhysicsVelocity.Linear;
-                            selfPhysicsVelocity.ApplyLinearImpulse(in selfPhysicsMass, impulseOnSelf);
-                            var characterLinearVelocityChange = velocityLostInOriginalProjection + (selfPhysicsVelocity.Linear - previousCharacterLinearVel);
-                            characterBody.RelativeVelocity += characterLinearVelocityChange;
-
-                            // TODO: this ignores custom vel projection.... any alternatives?
-                            // trim off any velocity that goes towards ground (prevents reoriented velocity issue)
-                            if (characterHit.IsGroundedOnHit && math.dot(characterBody.RelativeVelocity, characterHit.Normal) < -k_DotProductSimilarityEpsilon)
-                            {
-                                characterBody.RelativeVelocity = MathUtilities.ProjectOnPlane(characterBody.RelativeVelocity, characterBody.GroundingUp);
-                                characterBody.RelativeVelocity = MathUtilities.ReorientVectorOnPlaneAlongDirection(characterBody.RelativeVelocity, characterHit.Normal, characterBody.GroundingUp);
-                            }
-
-                            // if a character is moving towards is, they will also solve the collision themselves in their own update.
-                            // In order to prevent solving the coll twice, we won't apply any impulse on them in that case
-                            var otherIsCharacterMovingTowardsUs = otherIsCharacter && math.dot(otherPhysicsVelocity.Linear, effectiveHitNormalFromOtherToSelf) > k_DotProductSimilarityEpsilon;
-
-                            // Apply velocity change on hit body (only if dynamic and not character. Characters will solve the impulse on themselves)
-                            if (!otherIsCharacterMovingTowardsUs && otherIsDynamic && math.lengthsq(impulseOnOther) > 0f)
-                            {
-                                var previousLinearVel = otherPhysicsVelocity.Linear;
-                                var previousAngularVel = otherPhysicsVelocity.Angular;
-
-                                otherPhysicsVelocity.ApplyImpulse(otherPhysicsMass, otherTransform.pos, otherTransform.rot, impulseOnOther, characterHit.Position);
-
-                                DeferredImpulsesBuffer.Add(new KinematicCharacterDeferredImpulse
-                                {
-                                    OnEntity = hitBodyEntity,
-                                    LinearVelocityChange = otherPhysicsVelocity.Linear - previousLinearVel,
-                                    AngularVelocityChange = otherPhysicsVelocity.Angular - previousAngularVel,
-                                });
-                            }
+                    // Mass overrides
+                    if (characterData.SimulateDynamicBody && otherIsDynamic && !otherIsCharacter)
+                    {
+                        if (selfPhysicsMass.InverseMass > 0f && otherPhysicsMass.InverseMass > 0f)
+                        {
+                            processor.OverrideDynamicHitMasses(ref context, ref baseContext,
+                                ref selfPhysicsMass, ref otherPhysicsMass,
+                                new BasicHit(characterHit));
                         }
+                    }
+
+                    // Special cases with kinematic VS kinematic
+                    if (!characterData.SimulateDynamicBody && !otherIsDynamic)
+                    {
+                        // Pretend we have a mass of 1 against a kinematic body
+                        selfPhysicsMass.InverseMass = 1f;
+
+                        // When other is kinematic character, cancel their velocity towards us if any, for the sake of impulse calculations. This prevents bumping
+                        if (otherIsCharacter && math.dot(otherPhysicsVelocity.Linear, effectiveHitNormalFromOtherToSelf) > 0f)
+                        {
+                            otherPhysicsVelocity.Linear = MathUtilities.ProjectOnPlane(otherPhysicsVelocity.Linear, effectiveHitNormalFromOtherToSelf);
+                        }
+                    }
+
+                    // Restore the portion of the character velocity that got lost during hit projection (so we can re-solve it with dynamics)
+                    var velocityLostInOriginalProjection = math.projectsafe(characterHit.CharacterVelocityBeforeHit - characterHit.CharacterVelocityAfterHit, effectiveHitNormalFromOtherToSelf);
+                    selfPhysicsVelocity.Linear += velocityLostInOriginalProjection;
+
+                    // Solve impulses
+                    PhysicsUtilities.SolveCollisionImpulses(selfPhysicsVelocity,
+                        otherPhysicsVelocity,
+                        selfPhysicsMass,
+                        otherPhysicsMass,
+                        selfTransform,
+                        otherTransform,
+                        characterHit.Position,
+                        effectiveHitNormalFromOtherToSelf,
+                        out var impulseOnSelf,
+                        out var impulseOnOther);
+
+                    // Apply impulse to self
+                    var previousCharacterLinearVel = selfPhysicsVelocity.Linear;
+                    selfPhysicsVelocity.ApplyLinearImpulse(in selfPhysicsMass, impulseOnSelf);
+                    var characterLinearVelocityChange = velocityLostInOriginalProjection + (selfPhysicsVelocity.Linear - previousCharacterLinearVel);
+                    characterBody.RelativeVelocity += characterLinearVelocityChange;
+
+                    // TODO: this ignores custom vel projection.... any alternatives?
+                    // trim off any velocity that goes towards ground (prevents reoriented velocity issue)
+                    if (characterHit.IsGroundedOnHit && math.dot(characterBody.RelativeVelocity, characterHit.Normal) < -k_DotProductSimilarityEpsilon)
+                    {
+                        characterBody.RelativeVelocity = MathUtilities.ProjectOnPlane(characterBody.RelativeVelocity, characterBody.GroundingUp);
+                        characterBody.RelativeVelocity = MathUtilities.ReorientVectorOnPlaneAlongDirection(characterBody.RelativeVelocity, characterHit.Normal, characterBody.GroundingUp);
+                    }
+
+                    // if a character is moving towards is, they will also solve the collision themselves in their own update.
+                    // In order to prevent solving the coll twice, we won't apply any impulse on them in that case
+                    var otherIsCharacterMovingTowardsUs = otherIsCharacter && math.dot(otherPhysicsVelocity.Linear, effectiveHitNormalFromOtherToSelf) > k_DotProductSimilarityEpsilon;
+
+                    // Apply velocity change on hit body (only if dynamic and not character. Characters will solve the impulse on themselves)
+                    if (!otherIsCharacterMovingTowardsUs && otherIsDynamic && math.lengthsq(impulseOnOther) > 0f)
+                    {
+                        var previousLinearVel = otherPhysicsVelocity.Linear;
+                        var previousAngularVel = otherPhysicsVelocity.Angular;
+
+                        otherPhysicsVelocity.ApplyImpulse(otherPhysicsMass, otherTransform.pos, otherTransform.rot, impulseOnOther, characterHit.Position);
+
+                        DeferredImpulsesBuffer.Add(new KinematicCharacterDeferredImpulse
+                        {
+                            OnEntity = hitBodyEntity,
+                            LinearVelocityChange = otherPhysicsVelocity.Linear - previousLinearVel,
+                            AngularVelocityChange = otherPhysicsVelocity.Angular - previousAngularVel,
+                        });
                     }
                 }
             }
@@ -814,7 +817,7 @@ namespace Character.Kinematic
         /// </summary>
         /// <param name="processor"> The struct implementing <see cref="IKinematicCharacterProcessor{C}"/> </param>
         /// <param name="context"> The user context struct holding global data meant to be accessed during the character update </param>
-        /// <param name="baseContext"> The built-in context struct holding global data meant to be accessed during the character update </param> 
+        /// <param name="baseContext"> The built-in context struct holding global data meant to be accessed during the character update </param>
         /// <param name="characterBody"> The character body component </param>
         /// <param name="characterPosition"> The position of the character </param>
         /// <param name="originalVelocityDirection"> Direction of the character velocity before any projection of velocity happened on this update </param>
@@ -833,7 +836,9 @@ namespace Character.Kinematic
         {
             confirmedNoOverlapsOnLastMoveIteration = false;
 
-            var characterRotation = LocalTransform.ValueRO.Rotation;
+            var characterTransform = LocalTransform.ValueRO;
+            var characterRotation = characterTransform.Rotation;
+            var characterScale = characterTransform.Scale;
             var characterData = CharacterData.ValueRO;
             var characterPhysicsCollider = PhysicsCollider.ValueRO;
 
@@ -849,7 +854,7 @@ namespace Character.Kinematic
             if (characterData is { DetectMovementCollisions: true, ProjectVelocityOnInitialOverlaps: true })
             {
                 if (CalculateDistanceAllCollisions(in processor, ref context, ref baseContext, characterPosition,
-                        characterRotation, 0f, characterData.ShouldIgnoreDynamicBodies(),
+                        characterRotation, characterScale, 0f, characterData.ShouldIgnoreDynamicBodies(),
                         out var overlapHits))
                 {
                     foreach (var overlapHit in overlapHits)
@@ -895,21 +900,13 @@ namespace Character.Kinematic
 
                     // Cast collider for movement
                     var castInput = new ColliderCastInput(characterPhysicsCollider.Value, castStartPosition,
-                        castStartPosition + (castDirection * castLength),
-                        characterRotation);
+                        castStartPosition + (castDirection * castLength), characterRotation, characterScale);
                     baseContext.TmpColliderCastHits.Clear();
                     var collector = new AllHitsCollector<ColliderCastHit>(1f, ref baseContext.TmpColliderCastHits);
                     baseContext.PhysicsWorld.CastCollider(castInput, ref collector);
-                    var foundMovementHit = FilterColliderCastHitsForMove(in processor,
-                        ref context,
-                        ref baseContext,
-                        ref baseContext.TmpColliderCastHits,
-                        !characterData.SimulateDynamicBody,
-                        castDirection,
-                        Entity.Null,
-                        characterData.ShouldIgnoreDynamicBodies(),
-                        out var closestHit,
-                        out var foundAnyOverlaps);
+                    var foundMovementHit = FilterColliderCastHitsForMove(in processor, ref context, ref baseContext, ref baseContext.TmpColliderCastHits,
+                        !characterData.SimulateDynamicBody, castDirection, Entity.Null, characterData.ShouldIgnoreDynamicBodies(),
+                        out var closestHit, out var foundAnyOverlaps);
 
                     if (!foundAnyOverlaps) confirmedNoOverlapsOnLastMoveIteration = true;
 
@@ -1008,7 +1005,7 @@ namespace Character.Kinematic
         /// </summary>
         /// <param name="processor"> The struct implementing <see cref="IKinematicCharacterProcessor{C}"/> </param>
         /// <param name="context"> The user context struct holding global data meant to be accessed during the character update </param>
-        /// <param name="baseContext"> The built-in context struct holding global data meant to be accessed during the character update </param> 
+        /// <param name="baseContext"> The built-in context struct holding global data meant to be accessed during the character update </param>
         /// <param name="characterBody"> The character body component </param>
         /// <param name="characterPosition"> The position of the character </param>
         /// <param name="originalVelocityDirection"> Direction of the character velocity before any projection of velocity happened on this update </param>
@@ -1025,7 +1022,9 @@ namespace Character.Kinematic
         {
             baseContext.TmpRigidbodyIndexesProcessed.Clear();
 
-            var characterRotation = LocalTransform.ValueRO.Rotation;
+            var characterTransform = LocalTransform.ValueRO;
+            var characterRotation = characterTransform.Rotation;
+            var characterScale = characterTransform.Scale;
             var characterData = CharacterData.ValueRO;
             var characterPhysicsCollider = PhysicsCollider.ValueRO;
 
@@ -1034,14 +1033,12 @@ namespace Character.Kinematic
             {
                 decollisionIterationsMade++;
 
-                var distanceInput = new ColliderDistanceInput(characterPhysicsCollider.Value, 0f,
-                    math.RigidTransform(characterRotation, characterPosition));
+                var distanceInput = new ColliderDistanceInput(characterPhysicsCollider.Value, 0f, math.RigidTransform(characterRotation, characterPosition), characterScale);
                 baseContext.TmpDistanceHits.Clear();
                 var collector = new AllHitsCollector<DistanceHit>(distanceInput.MaxDistance, ref baseContext.TmpDistanceHits);
                 baseContext.PhysicsWorld.CalculateDistance(distanceInput, ref collector);
-                FilterDistanceHitsForSolveOverlaps(in processor, ref context, ref baseContext,
-                    ref baseContext.TmpDistanceHits, out var mostPenetratingHit,
-                    out var mostPenetratingDynamicHit, out var mostPenetratingNonDynamicHit);
+                FilterDistanceHitsForSolveOverlaps(in processor, ref context, ref baseContext, ref baseContext.TmpDistanceHits,
+                    out var mostPenetratingHit, out var mostPenetratingDynamicHit, out var mostPenetratingNonDynamicHit);
 
                 var foundHitForDecollision = false;
 
@@ -1191,7 +1188,7 @@ namespace Character.Kinematic
         {
             var overlapDistance = math.max(decollisionDistance, 0f);
             if (overlapDistance > 0f)
-                decollisionVector += MathUtilities.ReverseProjectOnVector(originalHitNormal * overlapDistance,
+                decollisionVector = MathUtilities.ReverseProjectOnVector(originalHitNormal * overlapDistance,
                     newDecollisionDirection, overlapDistance * k_DefaultReverseProjectionMaxLengthRatio);
         }
 
@@ -1200,7 +1197,7 @@ namespace Character.Kinematic
         /// </summary>
         /// <param name="processor"> The struct implementing <see cref="IKinematicCharacterProcessor{C}"/> </param>
         /// <param name="context"> The user context struct holding global data meant to be accessed during the character update </param>
-        /// <param name="baseContext"> The built-in context struct holding global data meant to be accessed during the character update </param> 
+        /// <param name="baseContext"> The built-in context struct holding global data meant to be accessed during the character update </param>
         /// <param name="characterBody"> The character body component </param>
         /// <param name="characterPosition"> The position of the character </param>
         /// <param name="hit"> The hit to decollide from </param>
@@ -1229,32 +1226,36 @@ namespace Character.Kinematic
             where T : unmanaged, IKinematicCharacterProcessor<C>
             where C : unmanaged
         {
-            var characterRotation = LocalTransform.ValueRO.Rotation;
+            var characterTransform = LocalTransform.ValueRO;
+            var characterRotation = characterTransform.Rotation;
+            var characterScale = characterTransform.Scale;
 
-            // Grounding considerations for decollision (modified decollision direction)
             var decollisionDirection = hit.Normal;
             var decollisionVector = decollisionDirection * decollisionDistance;
+            // Always decollide vertically from grounded hits
             if (isGroundedOnHit)
             {
                 if (math.dot(characterBody.GroundingUp, hit.Normal) > k_MinDotRatioForVerticalDecollision)
                 {
-                    // Always decollide vertically from grounded hits
                     decollisionDirection = characterBody.GroundingUp;
                     RecalculateDecollisionVector(ref decollisionVector, hit.Normal, decollisionDirection, decollisionDistance);
                 }
-                else if (characterBody.IsGrounded && !hitIsDynamic)
-                {
-                    // If we are grounded and hit is nongrounded, decollide horizontally on the plane of our ground normal
-                    decollisionDirection = math.normalizesafe(MathUtilities.ProjectOnPlane(decollisionDirection, characterBody.GroundHit.Normal));
-                    RecalculateDecollisionVector(ref decollisionVector, hit.Normal, decollisionDirection, decollisionDistance);
-                }
+            }
+            // If we are grounded and hit is nongrounded, decollide horizontally on the plane of our ground normal
+            else if (characterBody.IsGrounded && !hitIsDynamic)
+            {
+                decollisionDirection = math.normalizesafe(MathUtilities.ProjectOnPlane(decollisionDirection, characterBody.GroundHit.Normal));
+                RecalculateDecollisionVector(ref decollisionVector, hit.Normal, decollisionDirection, decollisionDistance);
             }
 
             // In simulateDynamic mode, before we decollide from a dynamic body, check if the decollision would be obstructed by anything other than the decollided body
             if (characterSimulateDynamic && hitIsDynamic &&
                 CastColliderClosestCollisions(in processor, ref context, ref baseContext,
-                    characterPosition, characterRotation, decollisionDirection, decollisionDistance,
-                    true, true, out var closestHit, out var closestHitDistance) &&
+                    characterPosition, characterRotation, characterScale,
+                    decollisionDirection, decollisionDistance,
+                    true, true,
+                    out var closestHit,
+                    out var closestHitDistance) &&
                 closestHit.Entity != hit.Entity)
             {
                 // Move based on how far the obstruction was
@@ -1342,11 +1343,11 @@ namespace Character.Kinematic
         }
 
         /// <summary>
-        /// Determines if step-handling considerations would make a character be grounded on a hit 
+        /// Determines if step-handling considerations would make a character be grounded on a hit
         /// </summary>
         /// <param name="processor"> The struct implementing <see cref="IKinematicCharacterProcessor{C}"/> </param>
         /// <param name="context"> The user context struct holding global data meant to be accessed during the character update </param>
-        /// <param name="baseContext"> The built-in context struct holding global data meant to be accessed during the character update </param> 
+        /// <param name="baseContext"> The built-in context struct holding global data meant to be accessed during the character update </param>
         /// <param name="hit"> The hit to decollide from </param>
         /// <param name="maxStepHeight"> The maximum height that the character can step over </param>
         /// <param name="extraStepChecksDistance"> The horizontal distance at which extra downward step-detection raycasts will be made, in order to allow stepping over steps that are slightly angled </param>
@@ -1454,7 +1455,7 @@ namespace Character.Kinematic
         /// </summary>
         /// <param name="processor"> The struct implementing <see cref="IKinematicCharacterProcessor{C}"/> </param>
         /// <param name="context"> The user context struct holding global data meant to be accessed during the character update </param>
-        /// <param name="baseContext"> The built-in context struct holding global data meant to be accessed during the character update </param> 
+        /// <param name="baseContext"> The built-in context struct holding global data meant to be accessed during the character update </param>
         /// <param name="characterBody"> The character body component </param>
         /// <param name="characterPosition"> The position of the character </param>
         /// <param name="hit"> The hit to decollide from </param>
@@ -1485,7 +1486,9 @@ namespace Character.Kinematic
         {
             hasSteppedUp = false;
 
-            var characterRotation = LocalTransform.ValueRO.Rotation;
+            var characterTransform = LocalTransform.ValueRO;
+            var characterRotation = characterTransform.Rotation;
+            var characterScale = characterTransform.Scale;
             var characterData = CharacterData.ValueRO;
 
             // Step up hits (only needed if not grounded on that hit)
@@ -1498,9 +1501,11 @@ namespace Character.Kinematic
 
                 // Up cast
                 var foundUpStepHit = CastColliderClosestCollisions(in processor, ref context, ref baseContext,
-                    startPositionOfUpCheck, characterRotation, upCheckDirection, upCheckDistance,
+                    startPositionOfUpCheck, characterRotation, characterScale,
+                    upCheckDirection, upCheckDistance,
                     true, characterData.ShouldIgnoreDynamicBodies(),
-                    out var upStepHit, out var upStepHitDistance);
+                    out var upStepHit,
+                    out var upStepHitDistance);
 
                 upStepHitDistance = foundUpStepHit
                     ? math.max(0f, upStepHitDistance - k_CollisionOffset)
@@ -1520,9 +1525,11 @@ namespace Character.Kinematic
 
                     // Forward cast
                     var foundForwardStepHit = CastColliderClosestCollisions(in processor, ref context, ref baseContext,
-                        startPositionOfForwardCheck, characterRotation, forwardCheckDirection, forwardCheckDistance,
+                        startPositionOfForwardCheck, characterRotation, characterScale,
+                        forwardCheckDirection, forwardCheckDistance,
                         true, characterData.ShouldIgnoreDynamicBodies(),
-                        out var forwardStepHit, out var forwardStepHitDistance);
+                        out var forwardStepHit,
+                        out var forwardStepHitDistance);
 
                     forwardStepHitDistance = foundForwardStepHit
                         ? math.max(0f, forwardStepHitDistance - k_CollisionOffset)
@@ -1536,9 +1543,11 @@ namespace Character.Kinematic
 
                         // Down cast
                         var foundDownStepHit = CastColliderClosestCollisions(in processor, ref context, ref baseContext,
-                            startPositionOfDownCheck, characterRotation, downCheckDirection, downCheckDistance,
+                            startPositionOfDownCheck, characterRotation, characterScale,
+                            downCheckDirection, downCheckDistance,
                             true, characterData.ShouldIgnoreDynamicBodies(),
-                            out var downStepHit, out var downStepHitDistance);
+                            out var downStepHit,
+                            out var downStepHitDistance);
 
                         if (foundDownStepHit && downStepHitDistance > 0f)
                         {
@@ -1546,7 +1555,8 @@ namespace Character.Kinematic
                             var isGroundedOnStepHit = false;
                             if (characterData.EvaluateGrounding)
                             {
-                                isGroundedOnStepHit = processor.IsGroundedOnHit(ref context, ref baseContext, in stepHit, (int)GroundingEvaluationType.StepUpHit);
+                                isGroundedOnStepHit = processor.IsGroundedOnHit(ref context, ref baseContext,
+                                    in stepHit, (int)GroundingEvaluationType.StepUpHit);
                             }
 
                             if (isGroundedOnStepHit)
@@ -1606,7 +1616,7 @@ namespace Character.Kinematic
         /// </summary>
         /// <param name="processor"> The struct implementing <see cref="IKinematicCharacterProcessor{C}"/> </param>
         /// <param name="context"> The user context struct holding global data meant to be accessed during the character update </param>
-        /// <param name="baseContext"> The built-in context struct holding global data meant to be accessed during the character update </param> 
+        /// <param name="baseContext"> The built-in context struct holding global data meant to be accessed during the character update </param>
         /// <param name="verticalOffset"> Vertical upwards distance where detection raycasts will begin </param>
         /// <param name="downDetectionDepth"> Distance of downwards slope detection raycasts </param>
         /// <param name="deltaTimeIntoFuture"> Time delta into future to detect slopes at with the current character velocity </param>
@@ -1643,7 +1653,8 @@ namespace Character.Kinematic
             var characterBody = CharacterBody.ValueRO;
             var characterData = CharacterData.ValueRO;
 
-            if (IsGroundedOnSlopeNormal(characterData.MaxGroundedSlopeDotProduct, characterBody.GroundHit.Normal, characterBody.GroundingUp))
+            if (IsGroundedOnSlopeNormal(characterData.MaxGroundedSlopeDotProduct,
+                    characterBody.GroundHit.Normal, characterBody.GroundingUp))
             {
                 downDetectionDepth = stepHandling
                     ? math.max(maxStepHeight, downDetectionDepth) + verticalOffset
@@ -1656,7 +1667,7 @@ namespace Character.Kinematic
 
                 if (rayLength > math.EPSILON)
                 {
-                    // Raycast forward 
+                    // Raycast forward
                     var forwardHitFound = RaycastClosestCollisions(in processor, ref context, ref baseContext,
                         rayStartPoint, rayDirection, rayLength, characterData.ShouldIgnoreDynamicBodies(),
                         out var forwardHit, out var forwardHitDistance);
@@ -1664,9 +1675,8 @@ namespace Character.Kinematic
                     if (forwardHitFound)
                     {
                         foundSlopeHit = true;
-                        futureSlopeChangeAnglesRadians = CalculateAngleOfHitWithGroundUp(
-                            characterBody.GroundHit.Normal, forwardHit.SurfaceNormal, velocityDirection,
-                            characterBody.GroundingUp);
+                        futureSlopeChangeAnglesRadians = CalculateAngleOfHitWithGroundUp(characterBody.GroundHit.Normal,
+                            forwardHit.SurfaceNormal, velocityDirection, characterBody.GroundingUp);
                         futureSlopeHit = forwardHit;
                     }
                     else
@@ -1683,9 +1693,8 @@ namespace Character.Kinematic
                         if (downHitFound)
                         {
                             foundSlopeHit = true;
-                            futureSlopeChangeAnglesRadians = CalculateAngleOfHitWithGroundUp(
-                                characterBody.GroundHit.Normal, downHit.SurfaceNormal, velocityDirection,
-                                characterBody.GroundingUp);
+                            futureSlopeChangeAnglesRadians = CalculateAngleOfHitWithGroundUp(characterBody.GroundHit.Normal,
+                                downHit.SurfaceNormal, velocityDirection, characterBody.GroundingUp);
                             futureSlopeHit = downHit;
 
                             if (!IsGroundedOnSlopeNormal(characterData.MaxGroundedSlopeDotProduct,
@@ -1713,9 +1722,8 @@ namespace Character.Kinematic
                                 if (!foundSlopeHit)
                                 {
                                     foundSlopeHit = true;
-                                    futureSlopeChangeAnglesRadians = CalculateAngleOfHitWithGroundUp(
-                                        characterBody.GroundHit.Normal, secondDownHit.SurfaceNormal, velocityDirection,
-                                        characterBody.GroundingUp);
+                                    futureSlopeChangeAnglesRadians = CalculateAngleOfHitWithGroundUp(characterBody.GroundHit.Normal,
+                                        secondDownHit.SurfaceNormal, velocityDirection, characterBody.GroundingUp);
                                     futureSlopeHit = secondDownHit;
                                 }
 
@@ -1737,9 +1745,8 @@ namespace Character.Kinematic
                                 if (backHitFound)
                                 {
                                     foundSlopeHit = true;
-                                    futureSlopeChangeAnglesRadians = CalculateAngleOfHitWithGroundUp(
-                                        characterBody.GroundHit.Normal, backHit.SurfaceNormal, velocityDirection,
-                                        characterBody.GroundingUp);
+                                    futureSlopeChangeAnglesRadians = CalculateAngleOfHitWithGroundUp(characterBody.GroundHit.Normal,
+                                        backHit.SurfaceNormal, velocityDirection, characterBody.GroundingUp);
                                     futureSlopeHit = backHit;
 
                                     if (IsGroundedOnSlopeNormal(characterData.MaxGroundedSlopeDotProduct,
@@ -1773,7 +1780,7 @@ namespace Character.Kinematic
         /// </summary>
         /// <param name="processor"> The struct implementing <see cref="IKinematicCharacterProcessor{C}"/> </param>
         /// <param name="context"> The user context struct holding global data meant to be accessed during the character update </param>
-        /// <param name="baseContext"> The built-in context struct holding global data meant to be accessed during the character update </param> 
+        /// <param name="baseContext"> The built-in context struct holding global data meant to be accessed during the character update </param>
         /// <param name="movement"> The movement vector of the character </param>
         /// <param name="hit"> The hit to decollide from </param>
         /// <typeparam name="T"> The type of the struct implementing <see cref="IKinematicCharacterProcessor{C}"/> </typeparam>
@@ -1789,18 +1796,23 @@ namespace Character.Kinematic
         {
             hit = default;
 
-            var characterRotation = LocalTransform.ValueRO.Rotation;
-            var characterPosition = LocalTransform.ValueRO.Position;
+            var characterTransform = LocalTransform.ValueRO;
+            var characterRotation = characterTransform.Rotation;
+            var characterPosition = characterTransform.Position;
+            var characterScale = characterTransform.Scale;
             var characterData = CharacterData.ValueRO;
 
-            if (CastColliderClosestCollisions(in processor, ref context, ref baseContext, characterPosition,
-                    characterRotation, math.normalizesafe(movement), math.length(movement),
-                    true, characterData.ShouldIgnoreDynamicBodies(), out hit,
+            if (CastColliderClosestCollisions(in processor, ref context, ref baseContext,
+                    characterPosition, characterRotation, characterScale,
+                    math.normalizesafe(movement), math.length(movement),
+                    true, characterData.ShouldIgnoreDynamicBodies(),
+                    out hit,
                     out var hitDistance))
             {
                 if (characterData.EvaluateGrounding)
                 {
-                    if (!processor.IsGroundedOnHit(ref context, ref baseContext, new BasicHit(hit), (int)GroundingEvaluationType.Default))
+                    if (!processor.IsGroundedOnHit(ref context, ref baseContext,
+                            new BasicHit(hit), (int)GroundingEvaluationType.Default))
                     {
                         return true;
                     }
@@ -1813,11 +1825,11 @@ namespace Character.Kinematic
         /// <summary>
         /// Called on every character physics update in order to set a parent body for the character
         /// </summary>
-        /// <param name="baseContext"> The built-in context struct holding global data meant to be accessed during the character update </param> 
+        /// <param name="baseContext"> The built-in context struct holding global data meant to be accessed during the character update </param>
         /// <param name="characterBody"> The character body component </param>
         /// <param name="parentEntity"> The parent entity of the character </param>
         /// <param name="anchorPointLocalParentSpace"> The contact point between character and parent, in the parent's local space, around which the character will be rotated </param>
-        public void SetOrUpdateParentBody(ref KinematicCharacterUpdateContext baseContext, 
+        public void SetOrUpdateParentBody(ref KinematicCharacterUpdateContext baseContext,
             ref KinematicCharacterBody characterBody,
             Entity parentEntity,
             float3 anchorPointLocalParentSpace)
@@ -1833,7 +1845,7 @@ namespace Character.Kinematic
                 characterBody.ParentLocalAnchorPoint = default;
             }
         }
-        
+
         /// <summary>
         /// Determines the effective signed slope angle of a hit based on character movement direction (negative sign means downward)
         /// </summary>

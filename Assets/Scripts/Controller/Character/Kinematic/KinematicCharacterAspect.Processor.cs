@@ -11,7 +11,7 @@ namespace Character.Kinematic
         /// </summary>
         /// <param name="processor"> The struct implementing <see cref="IKinematicCharacterProcessor{C}"/> </param>
         /// <param name="context"> The user context struct holding global data meant to be accessed during the character update </param>
-        /// <param name="baseContext"> The built-in context struct holding global data meant to be accessed during the character update </param> 
+        /// <param name="baseContext"> The built-in context struct holding global data meant to be accessed during the character update </param>
         /// <param name="hit"> The hit to decollide from </param>
         /// <param name="stepAndSlopeHandling"> Whether or not step-handling is enabled </param>
         /// <param name="groundingEvaluationType"> Identifier for the type of grounding evaluation that's being requested </param>
@@ -54,7 +54,7 @@ namespace Character.Kinematic
 
             return isGroundedOnSlope || isGroundedOnSteps;
         }
-        
+
         /// <summary>
         /// Default implementation of the "UpdateGroundingUp" processor callback. Sets the character ground up to the character transform's up direction
         /// </summary>
@@ -62,7 +62,7 @@ namespace Character.Kinematic
         public void DefaultUpdateGroundingUp(ref KinematicCharacterBody characterBody)
         {
             var characterRotation = LocalTransform.ValueRO.Rotation;
-        
+
             // GroundingUp must be a normalized vector representing the "up" direction that we use to evaluate slope angles with.
             // By default this is the up direction of the character transform
             characterBody.GroundingUp = MathUtilities.GetUpFromRotation(characterRotation);
@@ -227,13 +227,13 @@ namespace Character.Kinematic
                 }
             }
         }
-        
+
         /// <summary>
         /// Default implementation of the "OnMovementHit" processor callback
         /// </summary>
         /// <param name="processor"> The struct implementing <see cref="IKinematicCharacterProcessor{C}"/> </param>
         /// <param name="context"> The user context struct holding global data meant to be accessed during the character update </param>
-        /// <param name="baseContext"> The built-in context struct holding global data meant to be accessed during the character update </param> 
+        /// <param name="baseContext"> The built-in context struct holding global data meant to be accessed during the character update </param>
         /// <param name="characterBody"> The character body component </param>
         /// <param name="characterPosition"> The position of the character </param>
         /// <param name="hit"> The hit to decollide from </param>
@@ -248,7 +248,7 @@ namespace Character.Kinematic
         /// <typeparam name="C"> The type of the user-created context struct </typeparam>
         public void DefaultOnMovementHit<T, C>(in T processor,
             ref C context,
-            ref KinematicCharacterUpdateContext baseContext, 
+            ref KinematicCharacterUpdateContext baseContext,
             ref KinematicCharacterBody characterBody,
             ref float3 characterPosition,
             ref KinematicCharacterHit hit,
@@ -281,7 +281,7 @@ namespace Character.Kinematic
                     characterWidthForStepGroundingCheck,
                     out hasSteppedUp);
             }
-            
+
             // Add velocityProjection hits only after potential correction from step handling
             VelocityProjectionHits.Add(new KinematicVelocityProjectionHit(hit));
 
@@ -301,7 +301,7 @@ namespace Character.Kinematic
                     ref characterBody.GroundHit,
                     in VelocityProjectionHits,
                     originalVelocityDirection);
-                
+
                 // Recalculate remaining movement after projection
                 var projectedVelocityLengthFactor = math.length(characterBody.RelativeVelocity) / math.length(velocityBeforeProjection);
                 remainingMovementLength *= projectedVelocityLengthFactor;

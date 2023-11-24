@@ -75,6 +75,15 @@ namespace Controller.Player
                     ""initialStateCheck"": false
                 },
                 {
+                    ""name"": ""Crouch"",
+                    ""type"": ""Button"",
+                    ""id"": ""b9dbfacc-cee0-4337-96da-134f449a21c1"",
+                    ""expectedControlType"": ""Button"",
+                    ""processors"": """",
+                    ""interactions"": """",
+                    ""initialStateCheck"": false
+                },
+                {
                     ""name"": ""Sprint"",
                     ""type"": ""Button"",
                     ""id"": ""85835435-e7f2-44da-ad49-bdea22fc556e"",
@@ -228,6 +237,28 @@ namespace Controller.Player
                 },
                 {
                     ""name"": """",
+                    ""id"": ""b8857ebe-a3d8-4ac2-8ecc-6d9ff086edbf"",
+                    ""path"": ""<Keyboard>/leftCtrl"",
+                    ""interactions"": """",
+                    ""processors"": """",
+                    ""groups"": """",
+                    ""action"": ""Crouch"",
+                    ""isComposite"": false,
+                    ""isPartOfComposite"": false
+                },
+                {
+                    ""name"": """",
+                    ""id"": ""5d41cf27-098e-4f66-a120-1249cb9082f8"",
+                    ""path"": ""<Gamepad>/buttonWest"",
+                    ""interactions"": """",
+                    ""processors"": """",
+                    ""groups"": """",
+                    ""action"": ""Crouch"",
+                    ""isComposite"": false,
+                    ""isPartOfComposite"": false
+                },
+                {
+                    ""name"": """",
                     ""id"": ""e3066a2d-6e6e-4508-b5ca-5df6c004d92e"",
                     ""path"": ""<Keyboard>/leftShift"",
                     ""interactions"": """",
@@ -271,6 +302,45 @@ namespace Controller.Player
                     ""isPartOfComposite"": false
                 }
             ]
+        },
+        {
+            ""name"": ""MenuMap"",
+            ""id"": ""08828243-0fa1-4364-8eef-e9e3bda16037"",
+            ""actions"": [
+                {
+                    ""name"": ""TapMenu"",
+                    ""type"": ""Button"",
+                    ""id"": ""a91ac4a9-0ea5-4e11-b704-7fcdf543bce8"",
+                    ""expectedControlType"": ""Button"",
+                    ""processors"": """",
+                    ""interactions"": """",
+                    ""initialStateCheck"": false
+                }
+            ],
+            ""bindings"": [
+                {
+                    ""name"": """",
+                    ""id"": ""7cf5f863-f8d6-4e85-9d30-4d87c7867739"",
+                    ""path"": ""<Keyboard>/tab"",
+                    ""interactions"": """",
+                    ""processors"": """",
+                    ""groups"": """",
+                    ""action"": ""TapMenu"",
+                    ""isComposite"": false,
+                    ""isPartOfComposite"": false
+                },
+                {
+                    ""name"": """",
+                    ""id"": ""cab84a18-abb2-47a4-b689-3f4bc9c62523"",
+                    ""path"": ""<Gamepad>/start"",
+                    ""interactions"": """",
+                    ""processors"": """",
+                    ""groups"": """",
+                    ""action"": ""TapMenu"",
+                    ""isComposite"": false,
+                    ""isPartOfComposite"": false
+                }
+            ]
         }
     ],
     ""controlSchemes"": []
@@ -282,8 +352,12 @@ namespace Controller.Player
             m_GameplayMap_LookConst = m_GameplayMap.FindAction("LookConst", throwIfNotFound: true);
             m_GameplayMap_CameraZoom = m_GameplayMap.FindAction("CameraZoom", throwIfNotFound: true);
             m_GameplayMap_Jump = m_GameplayMap.FindAction("Jump", throwIfNotFound: true);
+            m_GameplayMap_Crouch = m_GameplayMap.FindAction("Crouch", throwIfNotFound: true);
             m_GameplayMap_Sprint = m_GameplayMap.FindAction("Sprint", throwIfNotFound: true);
             m_GameplayMap_GodMode = m_GameplayMap.FindAction("GodMode", throwIfNotFound: true);
+            // MenuMap
+            m_MenuMap = asset.FindActionMap("MenuMap", throwIfNotFound: true);
+            m_MenuMap_TapMenu = m_MenuMap.FindAction("TapMenu", throwIfNotFound: true);
         }
 
         public void Dispose()
@@ -350,6 +424,7 @@ namespace Controller.Player
         private readonly InputAction m_GameplayMap_LookConst;
         private readonly InputAction m_GameplayMap_CameraZoom;
         private readonly InputAction m_GameplayMap_Jump;
+        private readonly InputAction m_GameplayMap_Crouch;
         private readonly InputAction m_GameplayMap_Sprint;
         private readonly InputAction m_GameplayMap_GodMode;
         public struct GameplayMapActions
@@ -361,6 +436,7 @@ namespace Controller.Player
             public InputAction @LookConst => m_Wrapper.m_GameplayMap_LookConst;
             public InputAction @CameraZoom => m_Wrapper.m_GameplayMap_CameraZoom;
             public InputAction @Jump => m_Wrapper.m_GameplayMap_Jump;
+            public InputAction @Crouch => m_Wrapper.m_GameplayMap_Crouch;
             public InputAction @Sprint => m_Wrapper.m_GameplayMap_Sprint;
             public InputAction @GodMode => m_Wrapper.m_GameplayMap_GodMode;
             public InputActionMap Get() { return m_Wrapper.m_GameplayMap; }
@@ -387,6 +463,9 @@ namespace Controller.Player
                 @Jump.started += instance.OnJump;
                 @Jump.performed += instance.OnJump;
                 @Jump.canceled += instance.OnJump;
+                @Crouch.started += instance.OnCrouch;
+                @Crouch.performed += instance.OnCrouch;
+                @Crouch.canceled += instance.OnCrouch;
                 @Sprint.started += instance.OnSprint;
                 @Sprint.performed += instance.OnSprint;
                 @Sprint.canceled += instance.OnSprint;
@@ -412,6 +491,9 @@ namespace Controller.Player
                 @Jump.started -= instance.OnJump;
                 @Jump.performed -= instance.OnJump;
                 @Jump.canceled -= instance.OnJump;
+                @Crouch.started -= instance.OnCrouch;
+                @Crouch.performed -= instance.OnCrouch;
+                @Crouch.canceled -= instance.OnCrouch;
                 @Sprint.started -= instance.OnSprint;
                 @Sprint.performed -= instance.OnSprint;
                 @Sprint.canceled -= instance.OnSprint;
@@ -435,6 +517,52 @@ namespace Controller.Player
             }
         }
         public GameplayMapActions @GameplayMap => new GameplayMapActions(this);
+
+        // MenuMap
+        private readonly InputActionMap m_MenuMap;
+        private List<IMenuMapActions> m_MenuMapActionsCallbackInterfaces = new List<IMenuMapActions>();
+        private readonly InputAction m_MenuMap_TapMenu;
+        public struct MenuMapActions
+        {
+            private @PlayerInputActions m_Wrapper;
+            public MenuMapActions(@PlayerInputActions wrapper) { m_Wrapper = wrapper; }
+            public InputAction @TapMenu => m_Wrapper.m_MenuMap_TapMenu;
+            public InputActionMap Get() { return m_Wrapper.m_MenuMap; }
+            public void Enable() { Get().Enable(); }
+            public void Disable() { Get().Disable(); }
+            public bool enabled => Get().enabled;
+            public static implicit operator InputActionMap(MenuMapActions set) { return set.Get(); }
+            public void AddCallbacks(IMenuMapActions instance)
+            {
+                if (instance == null || m_Wrapper.m_MenuMapActionsCallbackInterfaces.Contains(instance)) return;
+                m_Wrapper.m_MenuMapActionsCallbackInterfaces.Add(instance);
+                @TapMenu.started += instance.OnTapMenu;
+                @TapMenu.performed += instance.OnTapMenu;
+                @TapMenu.canceled += instance.OnTapMenu;
+            }
+
+            private void UnregisterCallbacks(IMenuMapActions instance)
+            {
+                @TapMenu.started -= instance.OnTapMenu;
+                @TapMenu.performed -= instance.OnTapMenu;
+                @TapMenu.canceled -= instance.OnTapMenu;
+            }
+
+            public void RemoveCallbacks(IMenuMapActions instance)
+            {
+                if (m_Wrapper.m_MenuMapActionsCallbackInterfaces.Remove(instance))
+                    UnregisterCallbacks(instance);
+            }
+
+            public void SetCallbacks(IMenuMapActions instance)
+            {
+                foreach (var item in m_Wrapper.m_MenuMapActionsCallbackInterfaces)
+                    UnregisterCallbacks(item);
+                m_Wrapper.m_MenuMapActionsCallbackInterfaces.Clear();
+                AddCallbacks(instance);
+            }
+        }
+        public MenuMapActions @MenuMap => new MenuMapActions(this);
         public interface IGameplayMapActions
         {
             void OnMove(InputAction.CallbackContext context);
@@ -442,8 +570,13 @@ namespace Controller.Player
             void OnLookConst(InputAction.CallbackContext context);
             void OnCameraZoom(InputAction.CallbackContext context);
             void OnJump(InputAction.CallbackContext context);
+            void OnCrouch(InputAction.CallbackContext context);
             void OnSprint(InputAction.CallbackContext context);
             void OnGodMode(InputAction.CallbackContext context);
+        }
+        public interface IMenuMapActions
+        {
+            void OnTapMenu(InputAction.CallbackContext context);
         }
     }
 }

@@ -51,6 +51,15 @@
                     "initialStateCheck": false
                 },
                 {
+                    "name": "Crouch",
+                    "type": "Button",
+                    "id": "b9dbfacc-cee0-4337-96da-134f449a21c1",
+                    "expectedControlType": "Button",
+                    "processors": "",
+                    "interactions": "",
+                    "initialStateCheck": false
+                },
+                {
                     "name": "Sprint",
                     "type": "Button",
                     "id": "85835435-e7f2-44da-ad49-bdea22fc556e",
@@ -204,6 +213,28 @@
                 },
                 {
                     "name": "",
+                    "id": "b8857ebe-a3d8-4ac2-8ecc-6d9ff086edbf",
+                    "path": "<Keyboard>/leftCtrl",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "",
+                    "action": "Crouch",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "",
+                    "id": "5d41cf27-098e-4f66-a120-1249cb9082f8",
+                    "path": "<Gamepad>/buttonWest",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "",
+                    "action": "Crouch",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "",
                     "id": "e3066a2d-6e6e-4508-b5ca-5df6c004d92e",
                     "path": "<Keyboard>/leftShift",
                     "interactions": "",
@@ -243,6 +274,45 @@
                     "processors": "",
                     "groups": "",
                     "action": "GodMode",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                }
+            ]
+        },
+        {
+            "name": "MenuMap",
+            "id": "08828243-0fa1-4364-8eef-e9e3bda16037",
+            "actions": [
+                {
+                    "name": "TapMenu",
+                    "type": "Button",
+                    "id": "a91ac4a9-0ea5-4e11-b704-7fcdf543bce8",
+                    "expectedControlType": "Button",
+                    "processors": "",
+                    "interactions": "",
+                    "initialStateCheck": false
+                }
+            ],
+            "bindings": [
+                {
+                    "name": "",
+                    "id": "7cf5f863-f8d6-4e85-9d30-4d87c7867739",
+                    "path": "<Keyboard>/tab",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "",
+                    "action": "TapMenu",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "",
+                    "id": "cab84a18-abb2-47a4-b689-3f4bc9c62523",
+                    "path": "<Gamepad>/start",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "",
+                    "action": "TapMenu",
                     "isComposite": false,
                     "isPartOfComposite": false
                 }

@@ -264,6 +264,7 @@ namespace Character
             ref var character = ref Character.ValueRW;
             ref var characterPosition = ref KinematicAspect.LocalTransform.ValueRW.Position;
             ref var characterRotation = ref KinematicAspect.LocalTransform.ValueRW.Rotation;
+            var characterScale = KinematicAspect.LocalTransform.ValueRO.Scale;
             ref var characterProperties = ref KinematicAspect.CharacterData.ValueRW;
         
             // Overlap test with standing geometry to see if we have space to stand
@@ -277,6 +278,7 @@ namespace Character
                 ref baseContext,
                 characterPosition,
                 characterRotation,
+                characterScale,
                 0f,
                 characterProperties.ShouldIgnoreDynamicBodies(),
                 out var hit);

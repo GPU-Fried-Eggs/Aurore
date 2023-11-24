@@ -6,11 +6,10 @@ using Unity.Collections.LowLevel.Unsafe;
 using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Transforms;
-using Utilities;
 
 namespace Character.Kinematic
 {
-    [UpdateInGroup(typeof(KinematicCharacterPhysicsUpdateGroup), OrderFirst = true)] 
+    [UpdateInGroup(typeof(KinematicCharacterPhysicsUpdateGroup), OrderFirst = true)]
     [WorldSystemFilter(WorldSystemFilterFlags.LocalSimulation | WorldSystemFilterFlags.ClientSimulation)]
     [BurstCompile]
     public partial struct CharacterInterpolationRememberTransformSystem : ISystem
@@ -28,16 +27,18 @@ namespace Character.Kinematic
         }
 
         private ComponentTypeHandle<LocalTransform> m_TransformType;
-        private ComponentTypeHandle<CharacterInterpolation> m_InterpolationType;
+        private ComponentTypeHandle<CharacterInterpolation> m_CharacterInterpolationType;
         private EntityQuery m_InterpolatedQuery;
 
         [BurstCompile]
         public void OnCreate(ref SystemState state)
         {
-            m_InterpolatedQuery = KinematicCharacterUtilities.GetInterpolatedCharacterQueryBuilder().Build(ref state);
+            m_InterpolatedQuery = new EntityQueryBuilder(Allocator.Temp)
+                .WithAll<LocalTransform, CharacterInterpolation>()
+                .Build(ref state);
 
             m_TransformType = state.GetComponentTypeHandle<LocalTransform>(true);
-            m_InterpolationType = state.GetComponentTypeHandle<CharacterInterpolation>(false);
+            m_CharacterInterpolationType = state.GetComponentTypeHandle<CharacterInterpolation>(false);
 
             var singletonEntity = state.EntityManager.CreateEntity();
             state.EntityManager.AddComponentData(singletonEntity, new Singleton());
@@ -49,18 +50,18 @@ namespace Character.Kinematic
         [BurstCompile]
         public void OnUpdate(ref SystemState state)
         {
-            m_TransformType.Update(ref state);
-            m_InterpolationType.Update(ref state);
-
             var time = SystemAPI.Time;
             ref var singleton = ref SystemAPI.GetSingletonRW<Singleton>().ValueRW;
             singleton.InterpolationDeltaTime = time.DeltaTime;
             singleton.LastTimeRememberedInterpolationTransforms = time.ElapsedTime;
 
+            m_TransformType.Update(ref state);
+            m_CharacterInterpolationType.Update(ref state);
+
             var job = new CharacterInterpolationRememberTransformJob
             {
                 TransformType = m_TransformType,
-                InterpolationType = m_InterpolationType,
+                CharacterInterpolationType = m_CharacterInterpolationType,
             };
             state.Dependency = job.ScheduleParallel(m_InterpolatedQuery, state.Dependency);
         }
@@ -69,7 +70,7 @@ namespace Character.Kinematic
         public unsafe struct CharacterInterpolationRememberTransformJob : IJobChunk
         {
             [ReadOnly] public ComponentTypeHandle<LocalTransform> TransformType;
-            public ComponentTypeHandle<CharacterInterpolation> InterpolationType;
+            public ComponentTypeHandle<CharacterInterpolation> CharacterInterpolationType;
 
             public void Execute(in ArchetypeChunk chunk, int unfilteredChunkIndex, bool useEnabledMask, in v128 chunkEnabledMask)
             {
@@ -77,7 +78,7 @@ namespace Character.Kinematic
                 Assert.IsFalse(useEnabledMask);
 
                 var chunkTransforms = chunk.GetNativeArray(ref TransformType);
-                var chunkCharacterInterpolations = chunk.GetNativeArray(ref InterpolationType);
+                var chunkCharacterInterpolations = chunk.GetNativeArray(ref CharacterInterpolationType);
 
                 var chunkInterpolationsPtr = chunkCharacterInterpolations.GetUnsafePtr();
                 var chunkCount = chunk.Count;
@@ -125,6 +126,13 @@ namespace Character.Kinematic
     public partial struct CharacterInterpolationSystem : ISystem
     {
         [BurstCompile]
+        public void OnCreate(ref SystemState state)
+        {
+            state.RequireForUpdate<CharacterInterpolation>();
+            state.RequireForUpdate<CharacterInterpolationRememberTransformSystem.Singleton>();
+        }
+
+        [BurstCompile]
         public void OnUpdate(ref SystemState state)
         {
             var singleton = SystemAPI.GetSingletonRW<CharacterInterpolationRememberTransformSystem.Singleton>().ValueRO;
@@ -134,11 +142,11 @@ namespace Character.Kinematic
             var fixedTimeStep = singleton.InterpolationDeltaTime;
             if (fixedTimeStep == 0f) return;
 
-            var timeAheadOfLastFixedUpdate = (float)(SystemAPI.Time.ElapsedTime - singleton.LastTimeRememberedInterpolationTransforms);
-            var normalizedTimeAhead = math.clamp(timeAheadOfLastFixedUpdate / fixedTimeStep, 0f, 1f);
+            var deltaTime = (float)(SystemAPI.Time.ElapsedTime - singleton.LastTimeRememberedInterpolationTransforms);
+            var normalizedTimeAhead = math.clamp(deltaTime / fixedTimeStep, 0f, 1f);
 
             var job = new CharacterInterpolationJob { NormalizedTimeAhead = normalizedTimeAhead };
-            job.ScheduleParallel();
+            state.Dependency = job.ScheduleParallel(state.Dependency);
         }
 
         [BurstCompile]
@@ -152,21 +160,17 @@ namespace Character.Kinematic
                 var targetTransform = new RigidTransform(transform.Rotation, transform.Position);
 
                 var interpolatedRot = targetTransform.rot;
-                if (interpolation.InterpolateRotation == 1)
+                if (interpolation.InterpolateRotation == 1 && !interpolation.ShouldSkipNextRotationInterpolation())
                 {
-                    if (!interpolation.ShouldSkipNextRotationInterpolation())
-                    {
-                        interpolatedRot = math.slerp(interpolation.InterpolationFromTransform.rot, targetTransform.rot, NormalizedTimeAhead);
-                    }
+                    interpolatedRot = math.slerp(interpolation.InterpolationFromTransform.rot,
+                        targetTransform.rot, NormalizedTimeAhead);
                 }
 
                 var interpolatedPos = targetTransform.pos;
-                if (interpolation.InterpolatePosition == 1)
+                if (interpolation.InterpolatePosition == 1 && !interpolation.ShouldSkipNextPositionInterpolation())
                 {
-                    if (!interpolation.ShouldSkipNextPositionInterpolation())
-                    {
-                        interpolatedPos = math.lerp(interpolation.InterpolationFromTransform.pos, targetTransform.pos, NormalizedTimeAhead);
-                    }
+                    interpolatedPos = math.lerp(interpolation.InterpolationFromTransform.pos,
+                        targetTransform.pos, NormalizedTimeAhead);
                 }
 
                 localToWorld.Value = new float4x4(interpolatedRot, interpolatedPos);
