@@ -46,7 +46,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   RotationSpeed: 2
   MaxVAngle: 89
-  MinVAngle: -89
+  MinVAngle: -85
   RotateWithCharacterParent: 1
   StartDistance: 2.5
   MinDistance: 1

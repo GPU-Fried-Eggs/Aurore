@@ -8,7 +8,6 @@
         "Unity.Physics",
         "Unity.Physics.Editor",
         "Unity.Physics.Hybrid",
-        "Unity.Physics.Samples",
         "Unity.Physics.Custom"
     ],
     "includePlatforms": [

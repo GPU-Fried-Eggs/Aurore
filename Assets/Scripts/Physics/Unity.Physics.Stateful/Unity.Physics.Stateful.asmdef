@@ -1,5 +1,6 @@
 {
-    "name": "Unity.Physics.Custom",
+    "name": "Unity.Physics.Stateful",
+    "rootNamespace": "",
     "references": [
         "Unity.Burst",
         "Unity.Collections",
@@ -10,11 +11,13 @@
         "Unity.Physics.Hybrid",
         "Unity.Transforms"
     ],
+    "includePlatforms": [],
     "excludePlatforms": [],
-    "allowUnsafeCode": true,
+    "allowUnsafeCode": false,
     "overrideReferences": false,
     "precompiledReferences": [],
     "autoReferenced": true,
     "defineConstraints": [],
-    "versionDefines": []
+    "versionDefines": [],
+    "noEngineReferences": false
 }
