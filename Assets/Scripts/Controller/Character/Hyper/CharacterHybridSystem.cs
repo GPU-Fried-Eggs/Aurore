@@ -14,7 +14,7 @@ namespace Character.Hyper
         {
             var ecb = SystemAPI.GetSingletonRW<EndSimulationEntityCommandBufferSystem.Singleton>().ValueRW
                 .CreateCommandBuffer(World.Unmanaged);
-
+    
             // Create
             foreach (var (characterAnimation, hybridData, entity) in SystemAPI
                          .Query<RefRW<CharacterAnimation>, CharacterHybridData>()
@@ -23,16 +23,17 @@ namespace Character.Hyper
             {
                 var tmpObject = GameObject.Instantiate(hybridData.MeshPrefab);
                 var animator = tmpObject.GetComponent<Animator>();
-
+    
                 ecb.AddComponent(entity, new CharacterHybridLink
                 {
                     Object = tmpObject,
                     Animator = animator,
                 });
-
+    
                 // Find the clipIndex param
-                foreach (var parameter in animator.parameters)
+                for (var i = 0; i < animator.parameters.Length; i++)
                 {
+                    var parameter = animator.parameters[i];
                     if (parameter.name == "ClipIndex")
                     {
                         characterAnimation.ValueRW.ClipIndexParameterHash = parameter.nameHash;
@@ -40,7 +41,7 @@ namespace Character.Hyper
                     }
                 }
             }
-
+    
             // Update
             foreach (var (characterAnimation, characterBody, characterTransform, characterComponent,
                          characterStateMachine, characterControl, hybridLink, entity) in SystemAPI
@@ -60,7 +61,7 @@ namespace Character.Hyper
                     var meshRootLTW = SystemAPI.GetComponent<LocalToWorld>(characterComponent.MeshRootEntity);
                     hybridLink.Object.transform.position = meshRootLTW.Position;
                     hybridLink.Object.transform.rotation = meshRootLTW.Rotation;
-
+    
                     // Animation
                     if (hybridLink.Animator)
                     {
@@ -73,7 +74,7 @@ namespace Character.Hyper
                     }
                 }
             }
-
+    
             // Destroy
             foreach (var (hybridLink, entity) in SystemAPI.Query<CharacterHybridLink>()
                          .WithNone<CharacterHybridData>()

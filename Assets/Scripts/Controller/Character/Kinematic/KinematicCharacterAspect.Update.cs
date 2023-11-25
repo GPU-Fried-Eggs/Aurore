@@ -471,13 +471,15 @@ namespace Character.Kinematic
             var lastIndexOfOldStatefulHits = StatefulHitsBuffer.Length - 1;
 
             // Add new stateful hits
-            foreach (var characterHit in CharacterHitsBuffer)
+            for (var hitIndex = 0; hitIndex < CharacterHitsBuffer.Length; hitIndex++)
             {
+                var characterHit = CharacterHitsBuffer[hitIndex];
                 if (NewStatefulHitsEntity(in StatefulHitsBuffer, characterHit.Entity, lastIndexOfOldStatefulHits + 1))
                     continue;
 
                 var newStatefulHit = new StatefulKinematicCharacterHit(characterHit);
-                var entityWasInStatefulHitsBefore = OldStatefulHitsEntity(in StatefulHitsBuffer, characterHit.Entity, lastIndexOfOldStatefulHits, out var oldHitState);
+                var entityWasInStatefulHitsBefore = OldStatefulHitsEntity(in StatefulHitsBuffer, characterHit.Entity,
+                    lastIndexOfOldStatefulHits, out var oldHitState);
 
                 if (entityWasInStatefulHitsBefore)
                 {

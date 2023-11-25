@@ -579,8 +579,9 @@ namespace Character.Kinematic
                             // Sort hits in ascending fraction order
                             baseContext.TmpColliderCastHits.Sort(default(HitFractionComparer));
 
-                            foreach (var tmpHit in baseContext.TmpColliderCastHits)
+                            for (var i = 0; i < baseContext.TmpColliderCastHits.Length; i++)
                             {
+                                var tmpHit = baseContext.TmpColliderCastHits[i];
                                 // Skip if this is our ground hit
                                 if (tmpHit.RigidBodyIndex == groundHit.RigidBodyIndex &&
                                     tmpHit.ColliderKey.Equals(groundHit.ColliderKey))
@@ -588,7 +589,8 @@ namespace Character.Kinematic
 
                                 // Only accept if within tolerance distance
                                 var tmpHitDistance = tmpHit.Fraction * groundProbingLength;
-                                if (math.distancesq(tmpHitDistance, distanceToGround) <= k_GroundedHitDistanceToleranceSq)
+                                if (math.distancesq(tmpHitDistance, distanceToGround) <=
+                                    k_GroundedHitDistanceToleranceSq)
                                 {
                                     var tmpClosestGroundedHit = new BasicHit(tmpHit);
                                     var isGroundedOnHit = processor.IsGroundedOnHit(ref context, ref baseContext,
@@ -667,8 +669,9 @@ namespace Character.Kinematic
 
             baseContext.TmpRigidbodyIndexesProcessed.Clear();
 
-            foreach (var characterHit in CharacterHitsBuffer)
+            for (var index = 0; index < CharacterHitsBuffer.Length; index++)
             {
+                var characterHit = CharacterHitsBuffer[index];
                 if (characterHit.RigidBodyIndex < 0) continue;
 
                 var hitBodyIndex = characterHit.RigidBodyIndex;
@@ -677,7 +680,8 @@ namespace Character.Kinematic
 
                 if (hitBodyEntity == characterBody.ParentEntity) continue;
 
-                var bodyHasPhysicsVelocityAndMass = PhysicsUtilities.DoesBodyHavePhysicsVelocityAndMass(in baseContext.PhysicsWorld, hitBodyIndex);
+                var bodyHasPhysicsVelocityAndMass =
+                    PhysicsUtilities.DoesBodyHavePhysicsVelocityAndMass(in baseContext.PhysicsWorld, hitBodyIndex);
                 if (bodyHasPhysicsVelocityAndMass)
                 {
                     if (baseContext.TmpRigidbodyIndexesProcessed.Contains(characterHit.RigidBodyIndex))
@@ -709,11 +713,15 @@ namespace Character.Kinematic
                             Linear = data.RelativeVelocity + data.ParentVelocity,
                             Angular = float3.zero
                         };
-                        otherPhysicsMass = PhysicsUtilities.GetKinematicCharacterPhysicsMass(baseContext.CharacterStoredDataLookup[hitBodyEntity]);
+                        otherPhysicsMass =
+                            PhysicsUtilities.GetKinematicCharacterPhysicsMass(
+                                baseContext.CharacterStoredDataLookup[hitBodyEntity]);
                     }
-                    else if (PhysicsUtilities.DoesBodyHavePhysicsVelocityAndMass(in baseContext.PhysicsWorld, hitBodyIndex))
+                    else if (PhysicsUtilities.DoesBodyHavePhysicsVelocityAndMass(in baseContext.PhysicsWorld,
+                                 hitBodyIndex))
                     {
-                        PhysicsUtilities.GetBodyComponents(in baseContext.PhysicsWorld, hitBodyIndex, out var transform, out otherPhysicsVelocity, out otherPhysicsMass);
+                        PhysicsUtilities.GetBodyComponents(in baseContext.PhysicsWorld, hitBodyIndex, out var transform,
+                            out otherPhysicsVelocity, out otherPhysicsMass);
 
                         otherIsDynamic = otherPhysicsMass.InverseMass > 0f;
                     }
@@ -722,12 +730,15 @@ namespace Character.Kinematic
                     var effectiveHitNormalFromOtherToSelf = characterHit.Normal;
                     if (characterHit is { WasCharacterGroundedOnHitEnter: true, IsGroundedOnHit: false })
                     {
-                        effectiveHitNormalFromOtherToSelf = math.normalizesafe(MathUtilities.ProjectOnPlane(characterHit.Normal, characterBody.GroundingUp));
+                        effectiveHitNormalFromOtherToSelf =
+                            math.normalizesafe(MathUtilities.ProjectOnPlane(characterHit.Normal,
+                                characterBody.GroundingUp));
                     }
                     else if (characterHit.IsGroundedOnHit)
                     {
                         effectiveHitNormalFromOtherToSelf = characterBody.GroundingUp;
                     }
+
                     // Prevent a grounding-reoriented normal for dynamic bodies
                     if (otherIsDynamic && !characterHit.IsGroundedOnHit)
                     {
@@ -752,14 +763,18 @@ namespace Character.Kinematic
                         selfPhysicsMass.InverseMass = 1f;
 
                         // When other is kinematic character, cancel their velocity towards us if any, for the sake of impulse calculations. This prevents bumping
-                        if (otherIsCharacter && math.dot(otherPhysicsVelocity.Linear, effectiveHitNormalFromOtherToSelf) > 0f)
+                        if (otherIsCharacter &&
+                            math.dot(otherPhysicsVelocity.Linear, effectiveHitNormalFromOtherToSelf) > 0f)
                         {
-                            otherPhysicsVelocity.Linear = MathUtilities.ProjectOnPlane(otherPhysicsVelocity.Linear, effectiveHitNormalFromOtherToSelf);
+                            otherPhysicsVelocity.Linear = MathUtilities.ProjectOnPlane(otherPhysicsVelocity.Linear,
+                                effectiveHitNormalFromOtherToSelf);
                         }
                     }
 
                     // Restore the portion of the character velocity that got lost during hit projection (so we can re-solve it with dynamics)
-                    var velocityLostInOriginalProjection = math.projectsafe(characterHit.CharacterVelocityBeforeHit - characterHit.CharacterVelocityAfterHit, effectiveHitNormalFromOtherToSelf);
+                    var velocityLostInOriginalProjection = math.projectsafe(
+                        characterHit.CharacterVelocityBeforeHit - characterHit.CharacterVelocityAfterHit,
+                        effectiveHitNormalFromOtherToSelf);
                     selfPhysicsVelocity.Linear += velocityLostInOriginalProjection;
 
                     // Solve impulses
@@ -777,20 +792,28 @@ namespace Character.Kinematic
                     // Apply impulse to self
                     var previousCharacterLinearVel = selfPhysicsVelocity.Linear;
                     selfPhysicsVelocity.ApplyLinearImpulse(in selfPhysicsMass, impulseOnSelf);
-                    var characterLinearVelocityChange = velocityLostInOriginalProjection + (selfPhysicsVelocity.Linear - previousCharacterLinearVel);
+                    var characterLinearVelocityChange = velocityLostInOriginalProjection +
+                                                        (selfPhysicsVelocity.Linear - previousCharacterLinearVel);
                     characterBody.RelativeVelocity += characterLinearVelocityChange;
 
                     // TODO: this ignores custom vel projection.... any alternatives?
                     // trim off any velocity that goes towards ground (prevents reoriented velocity issue)
-                    if (characterHit.IsGroundedOnHit && math.dot(characterBody.RelativeVelocity, characterHit.Normal) < -k_DotProductSimilarityEpsilon)
+                    if (characterHit.IsGroundedOnHit && math.dot(characterBody.RelativeVelocity, characterHit.Normal) <
+                        -k_DotProductSimilarityEpsilon)
                     {
-                        characterBody.RelativeVelocity = MathUtilities.ProjectOnPlane(characterBody.RelativeVelocity, characterBody.GroundingUp);
-                        characterBody.RelativeVelocity = MathUtilities.ReorientVectorOnPlaneAlongDirection(characterBody.RelativeVelocity, characterHit.Normal, characterBody.GroundingUp);
+                        characterBody.RelativeVelocity = MathUtilities.ProjectOnPlane(characterBody.RelativeVelocity,
+                            characterBody.GroundingUp);
+                        characterBody.RelativeVelocity =
+                            MathUtilities.ReorientVectorOnPlaneAlongDirection(characterBody.RelativeVelocity,
+                                characterHit.Normal, characterBody.GroundingUp);
                     }
 
                     // if a character is moving towards is, they will also solve the collision themselves in their own update.
                     // In order to prevent solving the coll twice, we won't apply any impulse on them in that case
-                    var otherIsCharacterMovingTowardsUs = otherIsCharacter && math.dot(otherPhysicsVelocity.Linear, effectiveHitNormalFromOtherToSelf) > k_DotProductSimilarityEpsilon;
+                    var otherIsCharacterMovingTowardsUs = otherIsCharacter &&
+                                                          math.dot(otherPhysicsVelocity.Linear,
+                                                              effectiveHitNormalFromOtherToSelf) >
+                                                          k_DotProductSimilarityEpsilon;
 
                     // Apply velocity change on hit body (only if dynamic and not character. Characters will solve the impulse on themselves)
                     if (!otherIsCharacterMovingTowardsUs && otherIsDynamic && math.lengthsq(impulseOnOther) > 0f)
@@ -798,7 +821,8 @@ namespace Character.Kinematic
                         var previousLinearVel = otherPhysicsVelocity.Linear;
                         var previousAngularVel = otherPhysicsVelocity.Angular;
 
-                        otherPhysicsVelocity.ApplyImpulse(otherPhysicsMass, otherTransform.pos, otherTransform.rot, impulseOnOther, characterHit.Position);
+                        otherPhysicsVelocity.ApplyImpulse(otherPhysicsMass, otherTransform.pos, otherTransform.rot,
+                            impulseOnOther, characterHit.Position);
 
                         DeferredImpulsesBuffer.Add(new KinematicCharacterDeferredImpulse
                         {
@@ -857,11 +881,13 @@ namespace Character.Kinematic
                         characterRotation, characterScale, 0f, characterData.ShouldIgnoreDynamicBodies(),
                         out var overlapHits))
                 {
-                    foreach (var overlapHit in overlapHits)
+                    for (var i = 0; i < overlapHits.Length; i++)
                     {
+                        var overlapHit = overlapHits[i];
                         var movementHit = new BasicHit(overlapHit);
 
-                        if (math.dot(movementHit.Normal, characterBody.RelativeVelocity) < k_DotProductSimilarityEpsilon)
+                        if (math.dot(movementHit.Normal, characterBody.RelativeVelocity) <
+                            k_DotProductSimilarityEpsilon)
                         {
                             var isGroundedOnTmpHit = false;
                             if (characterData.EvaluateGrounding)
@@ -1054,8 +1080,9 @@ namespace Character.Kinematic
                     var calculatedChosenHitIsGrounded = false;
 
                     // Remember all dynamic bodies as hits and push back those that cause an obstructed collision
-                    foreach (var dynamicHit in baseContext.TmpDistanceHits)
+                    for (var i = 0; i < baseContext.TmpDistanceHits.Length; i++)
                     {
+                        var dynamicHit = baseContext.TmpDistanceHits[i];
                         var basicDynamicHit = new BasicHit(dynamicHit);
 
                         var isGroundedOnHit = false;
@@ -1116,8 +1143,9 @@ namespace Character.Kinematic
                     // Push back all dynamic bodies & remember as hits, but only on last iteration
                     if (isLastIteration)
                     {
-                        foreach (var dynamicHit in baseContext.TmpDistanceHits)
+                        for (var i = 0; i < baseContext.TmpDistanceHits.Length; i++)
                         {
+                            var dynamicHit = baseContext.TmpDistanceHits[i];
                             var basicDynamicHit = new BasicHit(dynamicHit);
 
                             // Add as character hit
@@ -1302,7 +1330,7 @@ namespace Character.Kinematic
                 CharacterHitsBuffer.Add(ovelapCharacterHit);
             }
         }
-        
+
         /// <summary>
         /// Determines if grounded status should be prevented, based on the velocity of the character as well as the velocity of the hit body, if any.
         /// </summary>

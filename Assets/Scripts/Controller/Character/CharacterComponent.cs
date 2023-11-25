@@ -35,16 +35,11 @@ namespace Character
         [Header("Jumping")]
         public float GroundJumpSpeed;
         public float AirJumpSpeed;
-        public float WallRunJumpSpeed;
         public float JumpHeldAcceleration;
         public float MaxHeldJumpTime;
         public byte MaxUngroundedJumps;
         public float JumpAfterUngroundedGraceTime;
         public float JumpBeforeGroundedGraceTime;
-
-        [Header("Dashing")]
-        public float DashDuration;
-        public float DashSpeed;
 
         [Header("Swimming")]
         public float SwimmingAcceleration;
@@ -95,6 +90,8 @@ namespace Character
         public bool JumpPressed;
         public bool GodModePressed;
     }
+
+    public struct CharacterInitialized : IComponentData { }
 
     [Serializable]
     public struct CapsuleGeometryDefinition

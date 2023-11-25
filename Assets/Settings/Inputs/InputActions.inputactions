@@ -284,9 +284,9 @@
             "id": "08828243-0fa1-4364-8eef-e9e3bda16037",
             "actions": [
                 {
-                    "name": "TapMenu",
+                    "name": "ToggleMenu",
                     "type": "Button",
-                    "id": "a91ac4a9-0ea5-4e11-b704-7fcdf543bce8",
+                    "id": "894eb2f0-bd71-4011-bca1-281b6cb48942",
                     "expectedControlType": "Button",
                     "processors": "",
                     "interactions": "",
@@ -296,23 +296,23 @@
             "bindings": [
                 {
                     "name": "",
-                    "id": "7cf5f863-f8d6-4e85-9d30-4d87c7867739",
-                    "path": "<Keyboard>/tab",
+                    "id": "8743d8b3-15c3-4ffe-8f98-ee25a3bc88f2",
+                    "path": "<Keyboard>/escape",
                     "interactions": "",
                     "processors": "",
                     "groups": "",
-                    "action": "TapMenu",
+                    "action": "ToggleMenu",
                     "isComposite": false,
                     "isPartOfComposite": false
                 },
                 {
                     "name": "",
-                    "id": "cab84a18-abb2-47a4-b689-3f4bc9c62523",
+                    "id": "81d1c84d-43fd-4089-9526-c5a6569ebaad",
                     "path": "<Gamepad>/start",
                     "interactions": "",
                     "processors": "",
                     "groups": "",
-                    "action": "TapMenu",
+                    "action": "ToggleMenu",
                     "isComposite": false,
                     "isPartOfComposite": false
                 }

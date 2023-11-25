@@ -11,7 +11,6 @@ namespace Character
     
         GroundMove,
         AirMove,
-        // Dashing,
         Swimming,
         GodMode
     }

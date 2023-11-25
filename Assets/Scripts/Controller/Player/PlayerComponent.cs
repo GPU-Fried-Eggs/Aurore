@@ -8,7 +8,7 @@ namespace Player
 {
     [Serializable]
     [GhostComponent]
-    public struct PlayerData : IComponentData 
+    public struct PlayerData : IComponentData
     {
         [GhostField] public FixedString128Bytes Name;
         [GhostField] public Entity ControlledCharacter;

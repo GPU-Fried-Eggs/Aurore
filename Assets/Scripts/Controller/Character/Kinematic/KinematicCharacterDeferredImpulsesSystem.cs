@@ -45,8 +45,9 @@ namespace Character.Kinematic
 
             private void Execute(in DynamicBuffer<KinematicCharacterDeferredImpulse> characterDeferredImpulsesBuffer)
             {
-                foreach (var deferredImpulse in characterDeferredImpulsesBuffer)
+                for (var index = 0; index < characterDeferredImpulsesBuffer.Length; index++)
                 {
+                    var deferredImpulse = characterDeferredImpulsesBuffer[index];
                     // Impulse
                     var isImpulseOnCharacter = CharacterDataLookup.HasComponent(deferredImpulse.OnEntity);
                     if (isImpulseOnCharacter)

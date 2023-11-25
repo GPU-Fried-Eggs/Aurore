@@ -29,7 +29,7 @@ namespace Camera
     
         [Header("Misc")]
         public float CameraTargetTransitionTime = 0.4f;
-        public List<GameObject> IgnoredEntities = new();
+        public List<GameObject> IgnoredEntities = new List<GameObject>();
 
         private class OrbitCameraBaker : Baker<OrbitCameraAuthoring>
         {
@@ -65,11 +65,11 @@ namespace Camera
                 });
                 AddComponent(entity, new OrbitCameraControl());
                 var ignoredEntitiesBuffer = AddBuffer<OrbitCameraIgnoredEntityBufferElement>(entity);
-                foreach (var ignoredEntity in authoring.IgnoredEntities)
+                for (var i = 0; i < authoring.IgnoredEntities.Count; i++)
                 {
                     ignoredEntitiesBuffer.Add(new OrbitCameraIgnoredEntityBufferElement
                     {
-                        Entity = GetEntity(ignoredEntity, TransformUsageFlags.None),
+                        Entity = GetEntity(authoring.IgnoredEntities[i], TransformUsageFlags.None),
                     });
                 }
             }

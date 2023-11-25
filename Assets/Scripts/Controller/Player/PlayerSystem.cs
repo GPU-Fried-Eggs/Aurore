@@ -11,18 +11,17 @@ using Utilities;
 
 namespace Player
 {
-    [UpdateInGroup(typeof(GhostInputSystemGroup))]
-    [WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation)]
+    [UpdateInGroup(typeof(InitializationSystemGroup))]
     public partial class PlayerInputsSystem : SystemBase
     {
-        private PlayerInputActions.GameplayMapActions m_DefaultActionsMap;
+        private PlayerInputActions.GameplayMapActions m_ActionsMap;
 
         protected override void OnCreate()
         {
             var inputActions = new PlayerInputActions();
             inputActions.Enable();
             inputActions.GameplayMap.Enable();
-            m_DefaultActionsMap = inputActions.GameplayMap;
+            m_ActionsMap = inputActions.GameplayMap;
 
             RequireForUpdate(SystemAPI.QueryBuilder().WithAll<PlayerData, PlayerInputs>().Build());
             RequireForUpdate<NetworkTime>();
@@ -30,34 +29,31 @@ namespace Player
 
         protected override void OnUpdate()
         {
-            foreach (var (playerInputs, player, entity) in SystemAPI
-                         .Query<RefRW<PlayerInputs>, RefRW<PlayerData>>()
-                         .WithAll<GhostOwnerIsLocal>()
-                         .WithEntityAccess())
+            foreach (var (playerInputs, player) in SystemAPI.Query<RefRW<PlayerInputs>, PlayerData>())
             {
-                playerInputs.ValueRW.Move = Vector2.ClampMagnitude(m_DefaultActionsMap.Move.ReadValue<Vector2>(), 1f);
-                if (math.lengthsq(m_DefaultActionsMap.LookConst.ReadValue<Vector2>()) >
-                    math.lengthsq(m_DefaultActionsMap.LookDelta.ReadValue<Vector2>()))
+                playerInputs.ValueRW.Move = Vector2.ClampMagnitude(m_ActionsMap.Move.ReadValue<Vector2>(), 1f);
+                if (math.lengthsq(m_ActionsMap.LookConst.ReadValue<Vector2>()) >
+                    math.lengthsq(m_ActionsMap.LookDelta.ReadValue<Vector2>()))
                 {
-                    var inputDelta = m_DefaultActionsMap.LookConst.ReadValue<Vector2>() * SystemAPI.Time.DeltaTime;
+                    var inputDelta = m_ActionsMap.LookConst.ReadValue<Vector2>() * SystemAPI.Time.DeltaTime;
                     NetworkInputUtilities.AddInputDelta(ref playerInputs.ValueRW.Look.x, inputDelta.x);
                     NetworkInputUtilities.AddInputDelta(ref playerInputs.ValueRW.Look.y, inputDelta.y);
                 }
                 else
                 {
-                    var inputDelta = m_DefaultActionsMap.LookDelta.ReadValue<Vector2>();
+                    var inputDelta = m_ActionsMap.LookDelta.ReadValue<Vector2>();
                     NetworkInputUtilities.AddInputDelta(ref playerInputs.ValueRW.Look.x, inputDelta.x);
                     NetworkInputUtilities.AddInputDelta(ref playerInputs.ValueRW.Look.y, inputDelta.y);
                 }
-                playerInputs.ValueRW.CameraZoom = m_DefaultActionsMap.CameraZoom.ReadValue<float>();
-                playerInputs.ValueRW.SprintHeld = m_DefaultActionsMap.Sprint.IsPressed();
-                playerInputs.ValueRW.JumpHeld = m_DefaultActionsMap.Jump.IsPressed();
+                playerInputs.ValueRW.CameraZoom = m_ActionsMap.CameraZoom.ReadValue<float>();
+                playerInputs.ValueRW.SprintHeld = m_ActionsMap.Sprint.IsPressed();
+                playerInputs.ValueRW.JumpHeld = m_ActionsMap.Jump.IsPressed();
 
                 playerInputs.ValueRW.JumpPressed = default;
-                if (m_DefaultActionsMap.Jump.WasPressedThisFrame())
+                if (m_ActionsMap.Jump.WasPressedThisFrame())
                     playerInputs.ValueRW.JumpPressed.Set();
                 playerInputs.ValueRW.GodModePressed = default;
-                if (m_DefaultActionsMap.GodMode.WasPressedThisFrame())
+                if (m_ActionsMap.GodMode.WasPressedThisFrame())
                     playerInputs.ValueRW.GodModePressed.Set();
             }
         }

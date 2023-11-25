@@ -308,9 +308,9 @@ namespace Controller.Player
             ""id"": ""08828243-0fa1-4364-8eef-e9e3bda16037"",
             ""actions"": [
                 {
-                    ""name"": ""TapMenu"",
+                    ""name"": ""ToggleMenu"",
                     ""type"": ""Button"",
-                    ""id"": ""a91ac4a9-0ea5-4e11-b704-7fcdf543bce8"",
+                    ""id"": ""894eb2f0-bd71-4011-bca1-281b6cb48942"",
                     ""expectedControlType"": ""Button"",
                     ""processors"": """",
                     ""interactions"": """",
@@ -320,23 +320,23 @@ namespace Controller.Player
             ""bindings"": [
                 {
                     ""name"": """",
-                    ""id"": ""7cf5f863-f8d6-4e85-9d30-4d87c7867739"",
-                    ""path"": ""<Keyboard>/tab"",
+                    ""id"": ""8743d8b3-15c3-4ffe-8f98-ee25a3bc88f2"",
+                    ""path"": ""<Keyboard>/escape"",
                     ""interactions"": """",
                     ""processors"": """",
                     ""groups"": """",
-                    ""action"": ""TapMenu"",
+                    ""action"": ""ToggleMenu"",
                     ""isComposite"": false,
                     ""isPartOfComposite"": false
                 },
                 {
                     ""name"": """",
-                    ""id"": ""cab84a18-abb2-47a4-b689-3f4bc9c62523"",
+                    ""id"": ""81d1c84d-43fd-4089-9526-c5a6569ebaad"",
                     ""path"": ""<Gamepad>/start"",
                     ""interactions"": """",
                     ""processors"": """",
                     ""groups"": """",
-                    ""action"": ""TapMenu"",
+                    ""action"": ""ToggleMenu"",
                     ""isComposite"": false,
                     ""isPartOfComposite"": false
                 }
@@ -357,7 +357,7 @@ namespace Controller.Player
             m_GameplayMap_GodMode = m_GameplayMap.FindAction("GodMode", throwIfNotFound: true);
             // MenuMap
             m_MenuMap = asset.FindActionMap("MenuMap", throwIfNotFound: true);
-            m_MenuMap_TapMenu = m_MenuMap.FindAction("TapMenu", throwIfNotFound: true);
+            m_MenuMap_ToggleMenu = m_MenuMap.FindAction("ToggleMenu", throwIfNotFound: true);
         }
 
         public void Dispose()
@@ -521,12 +521,12 @@ namespace Controller.Player
         // MenuMap
         private readonly InputActionMap m_MenuMap;
         private List<IMenuMapActions> m_MenuMapActionsCallbackInterfaces = new List<IMenuMapActions>();
-        private readonly InputAction m_MenuMap_TapMenu;
+        private readonly InputAction m_MenuMap_ToggleMenu;
         public struct MenuMapActions
         {
             private @PlayerInputActions m_Wrapper;
             public MenuMapActions(@PlayerInputActions wrapper) { m_Wrapper = wrapper; }
-            public InputAction @TapMenu => m_Wrapper.m_MenuMap_TapMenu;
+            public InputAction @ToggleMenu => m_Wrapper.m_MenuMap_ToggleMenu;
             public InputActionMap Get() { return m_Wrapper.m_MenuMap; }
             public void Enable() { Get().Enable(); }
             public void Disable() { Get().Disable(); }
@@ -536,16 +536,16 @@ namespace Controller.Player
             {
                 if (instance == null || m_Wrapper.m_MenuMapActionsCallbackInterfaces.Contains(instance)) return;
                 m_Wrapper.m_MenuMapActionsCallbackInterfaces.Add(instance);
-                @TapMenu.started += instance.OnTapMenu;
-                @TapMenu.performed += instance.OnTapMenu;
-                @TapMenu.canceled += instance.OnTapMenu;
+                @ToggleMenu.started += instance.OnToggleMenu;
+                @ToggleMenu.performed += instance.OnToggleMenu;
+                @ToggleMenu.canceled += instance.OnToggleMenu;
             }
 
             private void UnregisterCallbacks(IMenuMapActions instance)
             {
-                @TapMenu.started -= instance.OnTapMenu;
-                @TapMenu.performed -= instance.OnTapMenu;
-                @TapMenu.canceled -= instance.OnTapMenu;
+                @ToggleMenu.started -= instance.OnToggleMenu;
+                @ToggleMenu.performed -= instance.OnToggleMenu;
+                @ToggleMenu.canceled -= instance.OnToggleMenu;
             }
 
             public void RemoveCallbacks(IMenuMapActions instance)
@@ -576,7 +576,7 @@ namespace Controller.Player
         }
         public interface IMenuMapActions
         {
-            void OnTapMenu(InputAction.CallbackContext context);
+            void OnToggleMenu(InputAction.CallbackContext context);
         }
     }
 }

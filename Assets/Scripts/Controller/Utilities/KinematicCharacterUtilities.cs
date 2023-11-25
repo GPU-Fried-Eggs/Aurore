@@ -194,7 +194,9 @@ namespace Utilities
         /// <param name="dstManager"> The entity manager used for adding components and buffers </param>
         /// <param name="entity"> The entity to create the character on </param>
         /// <param name="authoringData"> The properties of the character </param>
-        public static void CreateCharacter(EntityManager dstManager, Entity entity, AuthoringKinematicCharacterData authoringData)
+        public static void CreateCharacter(EntityManager dstManager,
+            Entity entity,
+            AuthoringKinematicCharacterData authoringData)
         {
             // Base character components
             dstManager.AddComponentData(entity, new KinematicCharacterData(authoringData));
@@ -229,7 +231,9 @@ namespace Utilities
         /// <param name="commandBuffer"> The entity command buffer used to add components and buffers to the entity </param>
         /// <param name="entity"> The entity to create the character on </param>
         /// <param name="authoringData"> The properties of the character </param>
-        public static void CreateCharacter(EntityCommandBuffer commandBuffer, Entity entity, AuthoringKinematicCharacterData authoringData)
+        public static void CreateCharacter(EntityCommandBuffer commandBuffer,
+            Entity entity,
+            AuthoringKinematicCharacterData authoringData)
         {
             // Base character components
             commandBuffer.AddComponent(entity, new KinematicCharacterData(authoringData));
@@ -265,7 +269,9 @@ namespace Utilities
         /// <param name="authoring"> The monobehaviour used for authoring the character </param>
         /// <param name="authoringData"> The properties of the character </param>
         /// <typeparam name="T"> The type of the monobehaviour used for authoring the character </typeparam>
-        public static void BakeCharacter<T>(Baker<T> baker, T authoring, AuthoringKinematicCharacterData authoringData) where T : MonoBehaviour
+        public static void BakeCharacter<T>(Baker<T> baker,
+            T authoring,
+            AuthoringKinematicCharacterData authoringData) where T : MonoBehaviour
         {
             if (authoring.transform.lossyScale != Vector3.one)
             {
@@ -315,7 +321,10 @@ namespace Utilities
         /// <param name="characterRelativeVelocity"> The character's relative velocity </param>
         /// <param name="isGroundedOnHit"> Whether or not the character would be grounded on this hit </param>
         /// <returns> The resulting character hit </returns>
-        public static KinematicCharacterHit CreateCharacterHit(in BasicHit newHit, bool characterIsGrounded, float3 characterRelativeVelocity, bool isGroundedOnHit)
+        public static KinematicCharacterHit CreateCharacterHit(in BasicHit newHit,
+            bool characterIsGrounded,
+            float3 characterRelativeVelocity,
+            bool isGroundedOnHit)
         {
             var newCharacterHit = new KinematicCharacterHit
             {
@@ -340,7 +349,10 @@ namespace Utilities
         /// <param name="fixedRateRotation"> The rotation that needs to happen over a fixed time delta </param>
         /// <param name="deltaTime"> The variable time delta </param>
         /// <param name="fixedDeltaTime"> The reference fixed time delta </param>
-        public static void AddVariableRateRotationFromFixedRateRotation(ref quaternion modifiedRotation, quaternion fixedRateRotation, float deltaTime, float fixedDeltaTime)
+        public static void AddVariableRateRotationFromFixedRateRotation(ref quaternion modifiedRotation,
+            quaternion fixedRateRotation,
+            float deltaTime,
+            float fixedDeltaTime)
         {
             if (fixedDeltaTime > 0f)
             {

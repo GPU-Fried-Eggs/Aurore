@@ -1,0 +1,34 @@
+.MainPanel {
+    background-color: rgba(0, 0, 0, 0.82);
+    border-radius: 8px;
+    height: 100%;
+    width: 100%;
+    padding: 8px;
+}
+
+.MenuSubPanel {
+    background-color: rgba(0, 0, 0, 0.7);
+    border-radius: 8px;
+    flex-shrink: 0;
+    flex-grow: 1;
+    justify-content: center;
+    padding: 0 8px;
+    margin: 4px 0;
+}
+
+.InfoText {
+    -unity-text-align: middle-center;
+    color: rgb(236, 236, 236);
+    font-size: 34px;
+    flex-grow: 1;
+}
+
+.unity-text-field__label {
+    -unity-font-style: bold;
+    color: rgb(226, 226, 226);
+}
+
+.unity-button {
+    -unity-font-style: bold;
+    color: rgb(255, 255, 255);
+}
