@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: Custom Physics Body Tag Names
   m_EditorClassIdentifier: 
   m_TagNames:
-  - 
+  - StickySurface
   - 
   - 
   - 

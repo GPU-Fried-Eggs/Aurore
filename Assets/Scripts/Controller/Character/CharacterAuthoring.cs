@@ -19,6 +19,8 @@ namespace Character
         public GameObject CrouchingCameraTarget;
         public GameObject MeshRoot;
 
+        public GameObject SwimmingDetectionPoint;
+
         private class CharacterBaker : Baker<CharacterAuthoring>
         {
             public override void Bake(CharacterAuthoring authoring)
@@ -29,6 +31,8 @@ namespace Character
                 authoring.Character.SwimmingCameraTargetEntity = GetEntity(authoring.SwimmingCameraTarget, TransformUsageFlags.Dynamic);
                 authoring.Character.CrouchingCameraTargetEntity = GetEntity(authoring.CrouchingCameraTarget, TransformUsageFlags.Dynamic);
                 authoring.Character.MeshRootEntity = GetEntity(authoring.MeshRoot, TransformUsageFlags.Dynamic);
+
+                authoring.Character.LocalSwimmingDetectionPoint = authoring.SwimmingDetectionPoint.transform.localPosition;
 
                 var entity = GetEntity(TransformUsageFlags.Dynamic);
 

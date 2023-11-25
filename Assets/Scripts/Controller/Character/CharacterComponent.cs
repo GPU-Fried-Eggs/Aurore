@@ -40,8 +40,6 @@ namespace Character
 
         [Header("Jumping")]
         public float GroundJumpSpeed;
-        public float AirJumpSpeed;
-        public float WallRunJumpSpeed;
         public float JumpHeldAcceleration;
         public float MaxHeldJumpTime;
         public float JumpAfterUngroundedGraceTime;
@@ -77,6 +75,8 @@ namespace Character
         [HideInInspector] public float LastTimeWasGrounded;
         [HideInInspector] public bool HasDetectedMoveAgainstWall;
         [HideInInspector] public float3 LastKnownWallNormal;
+        [HideInInspector] public float DistanceFromWaterSurface;
+        [HideInInspector] public float3 DirectionToWaterSurface;
         [HideInInspector] public bool IsSprinting;
         [HideInInspector] public bool IsOnStickySurface;
     }
