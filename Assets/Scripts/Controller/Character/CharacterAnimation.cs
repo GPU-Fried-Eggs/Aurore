@@ -18,6 +18,7 @@ namespace Character
         [HideInInspector] public int InAirClip;
         [HideInInspector] public int CrouchIdleClip;
         [HideInInspector] public int CrouchMoveClip;
+        [HideInInspector] public int ClimbingMoveClip;
         [HideInInspector] public int SwimmingIdleClip;
         [HideInInspector] public int SwimmingMoveClip;
 
@@ -100,6 +101,13 @@ namespace Character
                         animator.SetInteger(characterAnimation.ClipIndexParameterHash, characterAnimation.SwimmingMoveClip);
                     }
 
+                    break;
+                }
+                case CharacterState.Climbing:
+                {
+                    var velocityRatio = velocityMagnitude / characterComponent.ClimbingSpeed;
+                    animator.speed = velocityRatio;
+                    animator.SetInteger(characterAnimation.ClipIndexParameterHash, characterAnimation.ClimbingMoveClip);
                     break;
                 }
                 case CharacterState.GodMode:

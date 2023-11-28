@@ -270,6 +270,9 @@ namespace Character
             return !isObstructed;
         }
 
+        public static bool CanBeAffectedByWindZone(CharacterState currentCharacterState) =>
+            currentCharacterState is CharacterState.GroundMove or CharacterState.AirMove or CharacterState.Crouched;
+
         #region Character Processor Callbacks
 
         public void UpdateGroundingUp(ref CharacterUpdateContext context, ref KinematicCharacterUpdateContext baseContext)

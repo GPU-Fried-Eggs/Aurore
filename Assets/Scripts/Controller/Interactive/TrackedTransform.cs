@@ -4,7 +4,7 @@ using Unity.Entities;
 using Unity.Mathematics;
 using UnityEngine;
 
-namespace Physics
+namespace Interactive
 {
     [Serializable]
     public struct TrackedTransform : IComponentData

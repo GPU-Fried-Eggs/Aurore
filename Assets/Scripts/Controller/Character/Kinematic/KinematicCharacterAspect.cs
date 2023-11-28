@@ -1,6 +1,6 @@
 using System;
 using System.Runtime.CompilerServices;
-using Physics;
+using Interactive;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Core;

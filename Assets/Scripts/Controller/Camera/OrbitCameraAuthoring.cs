@@ -26,7 +26,7 @@ namespace Camera
         public float ObstructionInnerSmoothingSharpness = float.MaxValue;
         public float ObstructionOuterSmoothingSharpness = 5f;
         public bool PreventFixedUpdateJitter = true;
-    
+
         [Header("Misc")]
         public float CameraTargetTransitionTime = 0.4f;
         public List<GameObject> IgnoredEntities = new List<GameObject>();
@@ -43,23 +43,23 @@ namespace Camera
                     MaxVAngle = authoring.MaxVAngle,
                     MinVAngle = authoring.MinVAngle,
                     RotateWithCharacterParent = authoring.RotateWithCharacterParent,
-                
+
                     MinDistance = authoring.MinDistance,
                     MaxDistance = authoring.MaxDistance,
                     DistanceMovementSpeed = authoring.DistanceMovementSpeed,
                     DistanceMovementSharpness = authoring.DistanceMovementSharpness,
-                
+
                     ObstructionRadius = authoring.ObstructionRadius,
                     ObstructionInnerSmoothingSharpness = authoring.ObstructionInnerSmoothingSharpness,
                     ObstructionOuterSmoothingSharpness = authoring.ObstructionOuterSmoothingSharpness,
                     PreventFixedUpdateJitter = authoring.PreventFixedUpdateJitter,
-                
+
                     CameraTargetTransitionTime = authoring.CameraTargetTransitionTime,
-                
+
                     TargetDistance = authoring.StartDistance,
                     SmoothedTargetDistance = authoring.StartDistance,
                     ObstructedDistance = authoring.StartDistance,
-                
+
                     PitchAngle = 0f,
                     PlanarForward = -math.forward(),
                 });

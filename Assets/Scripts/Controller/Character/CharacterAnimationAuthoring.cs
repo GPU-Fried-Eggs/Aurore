@@ -11,7 +11,7 @@ namespace Character
             public override void Bake(CharacterAnimationAuthoring authoring)
             {
                 var entity = GetEntity(TransformUsageFlags.Dynamic);
-            
+
                 AddComponent(entity, new CharacterAnimation
                 {
                     IdleClip = 0,
@@ -20,8 +20,9 @@ namespace Character
                     InAirClip = 3,
                     CrouchIdleClip = 4,
                     CrouchMoveClip = 5,
-                    SwimmingIdleClip = 6,
-                    SwimmingMoveClip = 7
+                    ClimbingMoveClip = 6,
+                    SwimmingIdleClip = 7,
+                    SwimmingMoveClip = 8
                 });
             }
         }

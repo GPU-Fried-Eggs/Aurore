@@ -91,7 +91,7 @@ namespace Character
             m_Context.OnSystemCreate(ref state);
             m_BaseContext = new KinematicCharacterUpdateContext();
             m_BaseContext.OnSystemCreate(ref state);
-        
+
             state.RequireForUpdate(m_CharacterQuery);
         }
 

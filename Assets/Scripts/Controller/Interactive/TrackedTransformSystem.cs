@@ -5,7 +5,7 @@ using Unity.Mathematics;
 using Unity.Physics.Systems;
 using Unity.Transforms;
 
-namespace Physics
+namespace Interactive
 {
     [UpdateInGroup(typeof(AfterPhysicsSystemGroup))]
     [UpdateBefore(typeof(KinematicCharacterPhysicsUpdateGroup))]

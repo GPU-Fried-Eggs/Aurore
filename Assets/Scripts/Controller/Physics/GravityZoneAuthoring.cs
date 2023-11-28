@@ -4,13 +4,13 @@ using UnityEngine;
 
 namespace Physics
 {
-    public class GlobalGravityZoneAuthoring : MonoBehaviour
+    public class GravityZoneAuthoring : MonoBehaviour
     {
         public float3 Gravity;
 
-        private class GlobalGravityZoneBaker : Baker<GlobalGravityZoneAuthoring>
+        private class GravityZoneBaker : Baker<GravityZoneAuthoring>
         {
-            public override void Bake(GlobalGravityZoneAuthoring authoring)
+            public override void Bake(GravityZoneAuthoring authoring)
             {
                 var entity = GetEntity(TransformUsageFlags.Dynamic);
 

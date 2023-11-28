@@ -24,6 +24,7 @@ namespace Player
 
         public FixedInputEvent JumpPressed;
         public FixedInputEvent CrouchPressed;
+        public FixedInputEvent ClimbPressed;
         public FixedInputEvent GodModePressed;
     }
 

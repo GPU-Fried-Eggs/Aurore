@@ -17,6 +17,7 @@ namespace Character
         public CrouchedState CrouchedState;
         public AirMoveState AirMoveState;
         public SwimmingState SwimmingState;
+        public ClimbingState ClimbingState;
         public GodModeState GodModeState;
 
         public void TransitionToState(CharacterState newState,
@@ -51,6 +52,9 @@ namespace Character
                 case CharacterState.Swimming:
                     SwimmingState.OnStateEnter(previousState, ref context, ref baseContext, in aspect);
                     break;
+                case CharacterState.Climbing:
+                    ClimbingState.OnStateEnter(previousState, ref context, ref baseContext, in aspect);
+                    break;
                 case CharacterState.GodMode:
                     GodModeState.OnStateEnter(previousState, ref context, ref baseContext, in aspect);
                     break;
@@ -77,12 +81,15 @@ namespace Character
                 case CharacterState.Swimming:
                     SwimmingState.OnStateExit(newState, ref context, ref baseContext, in aspect);
                     break;
+                case CharacterState.Climbing:
+                    ClimbingState.OnStateExit(newState, ref context, ref baseContext, in aspect);
+                    break;
                 case CharacterState.GodMode:
                     GodModeState.OnStateExit(newState, ref context, ref baseContext, in aspect);
                     break;
             }
         }
-        
+
         public void OnStatePhysicsUpdate(CharacterState state,
             ref CharacterUpdateContext context,
             ref KinematicCharacterUpdateContext baseContext,
@@ -101,6 +108,9 @@ namespace Character
                     break;
                 case CharacterState.Swimming:
                     SwimmingState.OnStatePhysicsUpdate(ref context, ref baseContext, in aspect);
+                    break;
+                case CharacterState.Climbing:
+                    ClimbingState.OnStatePhysicsUpdate(ref context, ref baseContext, in aspect);
                     break;
                 case CharacterState.GodMode:
                     GodModeState.OnStatePhysicsUpdate(ref context, ref baseContext, in aspect);
@@ -126,6 +136,9 @@ namespace Character
                     break;
                 case CharacterState.Swimming:
                     SwimmingState.OnStateVariableUpdate(ref context, ref baseContext, in aspect);
+                    break;
+                case CharacterState.Climbing:
+                    ClimbingState.OnStateVariableUpdate(ref context, ref baseContext, in aspect);
                     break;
                 case CharacterState.GodMode:
                     GodModeState.OnStateVariableUpdate(ref context, ref baseContext, in aspect);
@@ -155,6 +168,9 @@ namespace Character
                 case CharacterState.Swimming:
                     SwimmingState.GetCameraParameters(in character, out cameraTarget, out calculateUpFromGravity);
                     break;
+                case CharacterState.Climbing:
+                    ClimbingState.GetCameraParameters(in character, out cameraTarget, out calculateUpFromGravity);
+                    break;
                 case CharacterState.GodMode:
                     GodModeState.GetCameraParameters(in character, out cameraTarget, out calculateUpFromGravity);
                     break;
@@ -181,6 +197,9 @@ namespace Character
                     break;
                 case CharacterState.Swimming:
                     SwimmingState.GetMoveVectorFromPlayerInput(in inputs, cameraRotation, out moveVector);
+                    break;
+                case CharacterState.Climbing:
+                    ClimbingState.GetMoveVectorFromPlayerInput(in inputs, cameraRotation, out moveVector);
                     break;
                 case CharacterState.GodMode:
                     GodModeState.GetMoveVectorFromPlayerInput(in inputs, cameraRotation, out moveVector);

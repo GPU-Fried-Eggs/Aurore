@@ -52,6 +52,8 @@ namespace Player
                     playerInputs.ValueRW.JumpPressed.Set(fixedTick);
                 if (m_ActionsMap.Crouch.WasPressedThisFrame())
                     playerInputs.ValueRW.CrouchPressed.Set(fixedTick);
+                if (m_ActionsMap.Climb.WasPressedThisFrame())
+                    playerInputs.ValueRW.ClimbPressed.Set(fixedTick);
                 if (m_ActionsMap.GodMode.WasPressedThisFrame())
                     playerInputs.ValueRW.GodModePressed.Set(fixedTick);
             }
@@ -131,6 +133,7 @@ namespace Player
 
                     characterControl.JumpPressed = playerInputs.ValueRW.JumpPressed.IsSet(fixedTick);
                     characterControl.CrouchPressed = playerInputs.ValueRW.CrouchPressed.IsSet(fixedTick);
+                    characterControl.ClimbPressed = playerInputs.ValueRW.ClimbPressed.IsSet(fixedTick);
                     characterControl.GodModePressed = playerInputs.ValueRW.GodModePressed.IsSet(fixedTick); 
 
                     SystemAPI.SetComponent(player.ControlledCharacter, characterControl);

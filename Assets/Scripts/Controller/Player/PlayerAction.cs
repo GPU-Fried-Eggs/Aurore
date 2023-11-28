@@ -75,6 +75,15 @@ namespace Player
                     ""initialStateCheck"": false
                 },
                 {
+                    ""name"": ""Sprint"",
+                    ""type"": ""Button"",
+                    ""id"": ""85835435-e7f2-44da-ad49-bdea22fc556e"",
+                    ""expectedControlType"": ""Button"",
+                    ""processors"": """",
+                    ""interactions"": """",
+                    ""initialStateCheck"": false
+                },
+                {
                     ""name"": ""Crouch"",
                     ""type"": ""Button"",
                     ""id"": ""b9dbfacc-cee0-4337-96da-134f449a21c1"",
@@ -84,9 +93,9 @@ namespace Player
                     ""initialStateCheck"": false
                 },
                 {
-                    ""name"": ""Sprint"",
+                    ""name"": ""Climb"",
                     ""type"": ""Button"",
-                    ""id"": ""85835435-e7f2-44da-ad49-bdea22fc556e"",
+                    ""id"": ""4a5606af-2b65-4fb3-8568-2dc3d260c2f2"",
                     ""expectedControlType"": ""Button"",
                     ""processors"": """",
                     ""interactions"": """",
@@ -237,6 +246,28 @@ namespace Player
                 },
                 {
                     ""name"": """",
+                    ""id"": ""e3066a2d-6e6e-4508-b5ca-5df6c004d92e"",
+                    ""path"": ""<Keyboard>/leftShift"",
+                    ""interactions"": """",
+                    ""processors"": """",
+                    ""groups"": """",
+                    ""action"": ""Sprint"",
+                    ""isComposite"": false,
+                    ""isPartOfComposite"": false
+                },
+                {
+                    ""name"": """",
+                    ""id"": ""db8f58c8-d84d-423b-8608-58639a692b4d"",
+                    ""path"": ""<Gamepad>/rightTrigger"",
+                    ""interactions"": """",
+                    ""processors"": """",
+                    ""groups"": """",
+                    ""action"": ""Sprint"",
+                    ""isComposite"": false,
+                    ""isPartOfComposite"": false
+                },
+                {
+                    ""name"": """",
                     ""id"": ""b8857ebe-a3d8-4ac2-8ecc-6d9ff086edbf"",
                     ""path"": ""<Keyboard>/leftCtrl"",
                     ""interactions"": """",
@@ -259,23 +290,23 @@ namespace Player
                 },
                 {
                     ""name"": """",
-                    ""id"": ""e3066a2d-6e6e-4508-b5ca-5df6c004d92e"",
-                    ""path"": ""<Keyboard>/leftShift"",
+                    ""id"": ""cf9f5ffb-52d5-4473-beef-24745a6537c7"",
+                    ""path"": ""<Keyboard>/f"",
                     ""interactions"": """",
                     ""processors"": """",
                     ""groups"": """",
-                    ""action"": ""Sprint"",
+                    ""action"": ""Climb"",
                     ""isComposite"": false,
                     ""isPartOfComposite"": false
                 },
                 {
                     ""name"": """",
-                    ""id"": ""db8f58c8-d84d-423b-8608-58639a692b4d"",
-                    ""path"": ""<Gamepad>/rightTrigger"",
+                    ""id"": ""54a109f1-823a-4268-8c9f-45a72ff13d84"",
+                    ""path"": ""<Gamepad>/leftShoulder"",
                     ""interactions"": """",
                     ""processors"": """",
                     ""groups"": """",
-                    ""action"": ""Sprint"",
+                    ""action"": ""Climb"",
                     ""isComposite"": false,
                     ""isPartOfComposite"": false
                 },
@@ -352,8 +383,9 @@ namespace Player
             m_GameplayMap_LookConst = m_GameplayMap.FindAction("LookConst", throwIfNotFound: true);
             m_GameplayMap_CameraZoom = m_GameplayMap.FindAction("CameraZoom", throwIfNotFound: true);
             m_GameplayMap_Jump = m_GameplayMap.FindAction("Jump", throwIfNotFound: true);
-            m_GameplayMap_Crouch = m_GameplayMap.FindAction("Crouch", throwIfNotFound: true);
             m_GameplayMap_Sprint = m_GameplayMap.FindAction("Sprint", throwIfNotFound: true);
+            m_GameplayMap_Crouch = m_GameplayMap.FindAction("Crouch", throwIfNotFound: true);
+            m_GameplayMap_Climb = m_GameplayMap.FindAction("Climb", throwIfNotFound: true);
             m_GameplayMap_GodMode = m_GameplayMap.FindAction("GodMode", throwIfNotFound: true);
             // MenuMap
             m_MenuMap = asset.FindActionMap("MenuMap", throwIfNotFound: true);
@@ -424,8 +456,9 @@ namespace Player
         private readonly InputAction m_GameplayMap_LookConst;
         private readonly InputAction m_GameplayMap_CameraZoom;
         private readonly InputAction m_GameplayMap_Jump;
-        private readonly InputAction m_GameplayMap_Crouch;
         private readonly InputAction m_GameplayMap_Sprint;
+        private readonly InputAction m_GameplayMap_Crouch;
+        private readonly InputAction m_GameplayMap_Climb;
         private readonly InputAction m_GameplayMap_GodMode;
         public struct GameplayMapActions
         {
@@ -436,8 +469,9 @@ namespace Player
             public InputAction @LookConst => m_Wrapper.m_GameplayMap_LookConst;
             public InputAction @CameraZoom => m_Wrapper.m_GameplayMap_CameraZoom;
             public InputAction @Jump => m_Wrapper.m_GameplayMap_Jump;
-            public InputAction @Crouch => m_Wrapper.m_GameplayMap_Crouch;
             public InputAction @Sprint => m_Wrapper.m_GameplayMap_Sprint;
+            public InputAction @Crouch => m_Wrapper.m_GameplayMap_Crouch;
+            public InputAction @Climb => m_Wrapper.m_GameplayMap_Climb;
             public InputAction @GodMode => m_Wrapper.m_GameplayMap_GodMode;
             public InputActionMap Get() { return m_Wrapper.m_GameplayMap; }
             public void Enable() { Get().Enable(); }
@@ -463,12 +497,15 @@ namespace Player
                 @Jump.started += instance.OnJump;
                 @Jump.performed += instance.OnJump;
                 @Jump.canceled += instance.OnJump;
-                @Crouch.started += instance.OnCrouch;
-                @Crouch.performed += instance.OnCrouch;
-                @Crouch.canceled += instance.OnCrouch;
                 @Sprint.started += instance.OnSprint;
                 @Sprint.performed += instance.OnSprint;
                 @Sprint.canceled += instance.OnSprint;
+                @Crouch.started += instance.OnCrouch;
+                @Crouch.performed += instance.OnCrouch;
+                @Crouch.canceled += instance.OnCrouch;
+                @Climb.started += instance.OnClimb;
+                @Climb.performed += instance.OnClimb;
+                @Climb.canceled += instance.OnClimb;
                 @GodMode.started += instance.OnGodMode;
                 @GodMode.performed += instance.OnGodMode;
                 @GodMode.canceled += instance.OnGodMode;
@@ -491,12 +528,15 @@ namespace Player
                 @Jump.started -= instance.OnJump;
                 @Jump.performed -= instance.OnJump;
                 @Jump.canceled -= instance.OnJump;
-                @Crouch.started -= instance.OnCrouch;
-                @Crouch.performed -= instance.OnCrouch;
-                @Crouch.canceled -= instance.OnCrouch;
                 @Sprint.started -= instance.OnSprint;
                 @Sprint.performed -= instance.OnSprint;
                 @Sprint.canceled -= instance.OnSprint;
+                @Crouch.started -= instance.OnCrouch;
+                @Crouch.performed -= instance.OnCrouch;
+                @Crouch.canceled -= instance.OnCrouch;
+                @Climb.started -= instance.OnClimb;
+                @Climb.performed -= instance.OnClimb;
+                @Climb.canceled -= instance.OnClimb;
                 @GodMode.started -= instance.OnGodMode;
                 @GodMode.performed -= instance.OnGodMode;
                 @GodMode.canceled -= instance.OnGodMode;
@@ -570,8 +610,9 @@ namespace Player
             void OnLookConst(InputAction.CallbackContext context);
             void OnCameraZoom(InputAction.CallbackContext context);
             void OnJump(InputAction.CallbackContext context);
-            void OnCrouch(InputAction.CallbackContext context);
             void OnSprint(InputAction.CallbackContext context);
+            void OnCrouch(InputAction.CallbackContext context);
+            void OnClimb(InputAction.CallbackContext context);
             void OnGodMode(InputAction.CallbackContext context);
         }
         public interface IMenuMapActions

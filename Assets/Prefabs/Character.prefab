@@ -37,6 +37,7 @@ Transform:
   - {fileID: 8635559848664311257}
   - {fileID: 7352445834885760419}
   - {fileID: 2524611465890633645}
+  - {fileID: 3510734563905901407}
   - {fileID: 3128428845154440790}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
@@ -249,8 +250,12 @@ MonoBehaviour:
     WaterDetectionDistance: 10
     SwimmingJumpSpeed: 14
     SwimmingSurfaceDiveThreshold: -0.75
+    ClimbingDistanceFromSurface: 0.375
+    ClimbingSpeed: 5
+    ClimbingMovementSharpness: 20
+    ClimbingRotationSharpness: 5
     StepAndSlopeHandling:
-      StepHandling: 0
+      StepHandling: 1
       MaxStepHeight: 0.5
       ExtraStepChecksDistance: 0.1
       CharacterWidthForStepGroundingCheck: 0
@@ -259,6 +264,15 @@ MonoBehaviour:
       MaxDownwardSlopeChangeAngle: 90
       ConstrainVelocityToGroundPlane: 1
     StickySurfaceTag:
+      Tag00: 0
+      Tag01: 1
+      Tag02: 0
+      Tag03: 0
+      Tag04: 0
+      Tag05: 0
+      Tag06: 0
+      Tag07: 0
+    ClimbableTag:
       Tag00: 1
       Tag01: 0
       Tag02: 0
@@ -315,6 +329,13 @@ MonoBehaviour:
         x: 0
         y: 0.3
         z: 0
+    ClimbingGeometry:
+      Radius: 1
+      Height: 2
+      Center:
+        x: 0
+        y: 0.7
+        z: 0
     SwimmingGeometry:
       Radius: 0.3
       Height: 1.4
@@ -324,7 +345,7 @@ MonoBehaviour:
         z: 0
     LocalSwimmingDetectionPoint:
       x: 0
-      y: 0
+      y: 0.8
       z: 0
     HeldJumpTimeCounter: 0
     JumpPressedBeforeBecameGrounded: 0
@@ -347,6 +368,7 @@ MonoBehaviour:
   MeshPrefab: {fileID: 1126443397040709475, guid: 46d40125d43a6c54c8c6f74a5bbe9220, type: 3}
   DefaultCameraTarget: {fileID: 5882012051128130332}
   SwimmingCameraTarget: {fileID: 7525399035363141752}
+  ClimbingCameraTarget: {fileID: 0}
   CrouchingCameraTarget: {fileID: 3780403037065582510}
   MeshRoot: {fileID: 6541080027917556602}
   SwimmingDetectionPoint: {fileID: 6558999685716323259}
@@ -398,6 +420,37 @@ Transform:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 3780403037065582510}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0.7, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 7926985654568346833}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &3791661281898145632
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 3510734563905901407}
+  m_Layer: 0
+  m_Name: ClimbingCameraTarget
+  m_TagString: Untagged
+  m_Icon: {fileID: 3306451490063965843, guid: 0000000000000000d000000000000000, type: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &3510734563905901407
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3791661281898145632}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0.7, z: 0}

@@ -1,6 +1,5 @@
 {
     "name": "Unity.Physics.Stateful",
-    "rootNamespace": "",
     "references": [
         "Unity.Burst",
         "Unity.Collections",
@@ -18,6 +17,5 @@
     "precompiledReferences": [],
     "autoReferenced": true,
     "defineConstraints": [],
-    "versionDefines": [],
-    "noEngineReferences": false
+    "versionDefines": []
 }

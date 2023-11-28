@@ -9,4 +9,10 @@ namespace Physics
     {
         public float3 Gravity;
     }
+
+    [Serializable]
+    public struct SphericalGravityZone : IComponentData
+    {
+        public float GravityStrengthAtCenter;
+    }
 }

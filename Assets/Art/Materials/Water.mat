@@ -92,7 +92,7 @@ Material:
     - _Cutoff: 0.5
     - _DetailAlbedoMapScale: 1
     - _DetailNormalMapScale: 1
-    - _Distortion_Scale: 45
+    - _Distortion_Scale: 2.5
     - _DstBlend: 0
     - _DstBlendAlpha: 0
     - _Effect_Opacity: 0.25
@@ -101,7 +101,7 @@ Material:
     - _Glossiness: 0
     - _GlossyReflections: 0
     - _Metallic: 0
-    - _Normal_Strength: 0.1
+    - _Normal_Strength: 0.07
     - _OcclusionStrength: 1
     - _Parallax: 0.005
     - _QueueControl: 0
@@ -126,7 +126,7 @@ Material:
     - _EmissionColor: {r: 0, g: 0, b: 0, a: 1}
     - _Shallow_Color: {r: 0.44811314, g: 0.8539124, b: 1, a: 0}
     - _SpecColor: {r: 0.19999996, g: 0.19999996, b: 0.19999996, a: 1}
-    - _Speeds: {r: 0.02, g: 0.01, b: 0, a: 0}
+    - _Speeds: {r: 0.02, g: 0.01, b: 0.01, a: 0.001}
   m_BuildTextureStacks: []
 --- !u!114 &3066564417255737577
 MonoBehaviour:

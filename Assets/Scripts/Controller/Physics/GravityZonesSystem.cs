@@ -1,7 +1,10 @@
 ﻿using Character;
 using Unity.Burst;
+using Unity.Collections;
 using Unity.Entities;
+using Unity.Mathematics;
 using Unity.Physics;
+using Unity.Physics.Stateful;
 using Unity.Transforms;
 using Utilities;
 
@@ -19,6 +22,13 @@ namespace Physics
 
             var resetGravitiesJob = new ResetGravitiesJob();
             resetGravitiesJob.Schedule();
+
+            var sphericalGravityJob = new SphericalGravityJob
+            {
+                CustomGravityFromEntity = SystemAPI.GetComponentLookup<CustomGravity>(false),
+                LocalToWorldFromEntity = SystemAPI.GetComponentLookup<LocalToWorld>(true),
+            };
+            sphericalGravityJob.Schedule();
 
             if (SystemAPI.TryGetSingleton(out GlobalGravityZone globalGravityZone))
             {
@@ -57,6 +67,46 @@ namespace Physics
                 {
                     customGravity.Gravity = GlobalGravityZone.Gravity * customGravity.GravityMultiplier;
                     customGravity.CurrentZoneEntity = Entity.Null;
+                }
+            }
+        }
+
+        [BurstCompile]
+        public unsafe partial struct SphericalGravityJob : IJobEntity
+        {
+            public ComponentLookup<CustomGravity> CustomGravityFromEntity;
+            [ReadOnly] public ComponentLookup<LocalToWorld> LocalToWorldFromEntity;
+
+            private void Execute(Entity entity,
+                in SphericalGravityZone sphericalGravityZone,
+                in PhysicsCollider physicsCollider,
+                in DynamicBuffer<StatefulTriggerEvent> triggerEventsBuffer)
+            {
+                if (triggerEventsBuffer.Length <= 0) return;
+
+                var sphereCollider = ((SphereCollider*)physicsCollider.ColliderPtr);
+                var sphereGeometry = sphereCollider->Geometry;
+
+                for (var i = 0; i < triggerEventsBuffer.Length; i++)
+                {
+                    var triggerEvent = triggerEventsBuffer[i];
+                    if (triggerEvent.State == StatefulEventState.Stay)
+                    {
+                        var otherEntity = triggerEvent.GetOtherEntity(entity);
+
+                        var fromOtherToSelfVector = LocalToWorldFromEntity[entity].Position - LocalToWorldFromEntity[otherEntity].Position;
+                        var distanceRatio = math.clamp(math.length(fromOtherToSelfVector) / sphereGeometry.Radius, 0.01f, 0.99f);
+                        var gravityToApply = ((1f - distanceRatio) * (math.normalizesafe(fromOtherToSelfVector) * sphericalGravityZone.GravityStrengthAtCenter));
+
+                        if (CustomGravityFromEntity.HasComponent(otherEntity))
+                        {
+                            var customGravity = CustomGravityFromEntity[otherEntity];
+                            customGravity.Gravity = gravityToApply * customGravity.GravityMultiplier;
+                            customGravity.TouchedByNonGlobalGravity = true;
+                            customGravity.CurrentZoneEntity = entity;
+                            CustomGravityFromEntity[otherEntity] = customGravity;
+                        }
+                    }
                 }
             }
         }

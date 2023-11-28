@@ -13,6 +13,7 @@ namespace Character
         Crouched,
         AirMove,
         Swimming,
+        Climbing,
         GodMode
     }
 

@@ -14,6 +14,7 @@ namespace Character
         [Header("References")]
         public Entity DefaultCameraTargetEntity;
         public Entity SwimmingCameraTargetEntity;
+        public Entity ClimbingCameraTargetEntity;
         public Entity CrouchingCameraTargetEntity;
         public Entity MeshRootEntity;
 
@@ -55,15 +56,23 @@ namespace Character
         public float SwimmingJumpSpeed;
         public float SwimmingSurfaceDiveThreshold;
 
+        [Header("Climbing")]
+        public float ClimbingDistanceFromSurface;
+        public float ClimbingSpeed;
+        public float ClimbingMovementSharpness;
+        public float ClimbingRotationSharpness;
+
         [Header("Step & Slope")]
         public BasicStepAndSlopeHandlingParameters StepAndSlopeHandling;
 
         [Header("Misc")]
         public CustomPhysicsBodyTags StickySurfaceTag;
+        public CustomPhysicsBodyTags ClimbableTag;
         public PhysicsCategoryTags WaterPhysicsCategory;
         public float UpOrientationAdaptationSharpness;
         public CapsuleGeometryDefinition StandingGeometry;
         public CapsuleGeometryDefinition CrouchingGeometry;
+        public CapsuleGeometryDefinition ClimbingGeometry;
         public CapsuleGeometryDefinition SwimmingGeometry;
 
         [HideInInspector] public float3 LocalSwimmingDetectionPoint;
@@ -85,13 +94,14 @@ namespace Character
     public struct CharacterControl : IComponentData
     {
         public float3 MoveVector;
-    
+
         public bool JumpHeld;
         public bool CrouchHeld;
         public bool SprintHeld;
 
         public bool JumpPressed;
         public bool CrouchPressed;
+        public bool ClimbPressed;
         public bool GodModePressed;
     }
 

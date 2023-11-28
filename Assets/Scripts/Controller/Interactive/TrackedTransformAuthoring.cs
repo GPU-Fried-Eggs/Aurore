@@ -2,7 +2,7 @@
 using Unity.Mathematics;
 using UnityEngine;
 
-namespace Physics
+namespace Interactive
 {
     [DisallowMultipleComponent]
     public class TrackedTransformAuthoring : MonoBehaviour

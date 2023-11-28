@@ -51,6 +51,15 @@
                     "initialStateCheck": false
                 },
                 {
+                    "name": "Sprint",
+                    "type": "Button",
+                    "id": "85835435-e7f2-44da-ad49-bdea22fc556e",
+                    "expectedControlType": "Button",
+                    "processors": "",
+                    "interactions": "",
+                    "initialStateCheck": false
+                },
+                {
                     "name": "Crouch",
                     "type": "Button",
                     "id": "b9dbfacc-cee0-4337-96da-134f449a21c1",
@@ -60,9 +69,9 @@
                     "initialStateCheck": false
                 },
                 {
-                    "name": "Sprint",
+                    "name": "Climb",
                     "type": "Button",
-                    "id": "85835435-e7f2-44da-ad49-bdea22fc556e",
+                    "id": "4a5606af-2b65-4fb3-8568-2dc3d260c2f2",
                     "expectedControlType": "Button",
                     "processors": "",
                     "interactions": "",
@@ -213,6 +222,28 @@
                 },
                 {
                     "name": "",
+                    "id": "e3066a2d-6e6e-4508-b5ca-5df6c004d92e",
+                    "path": "<Keyboard>/leftShift",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "",
+                    "action": "Sprint",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "",
+                    "id": "db8f58c8-d84d-423b-8608-58639a692b4d",
+                    "path": "<Gamepad>/rightTrigger",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "",
+                    "action": "Sprint",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "",
                     "id": "b8857ebe-a3d8-4ac2-8ecc-6d9ff086edbf",
                     "path": "<Keyboard>/leftCtrl",
                     "interactions": "",
@@ -235,23 +266,23 @@
                 },
                 {
                     "name": "",
-                    "id": "e3066a2d-6e6e-4508-b5ca-5df6c004d92e",
-                    "path": "<Keyboard>/leftShift",
+                    "id": "cf9f5ffb-52d5-4473-beef-24745a6537c7",
+                    "path": "<Keyboard>/f",
                     "interactions": "",
                     "processors": "",
                     "groups": "",
-                    "action": "Sprint",
+                    "action": "Climb",
                     "isComposite": false,
                     "isPartOfComposite": false
                 },
                 {
                     "name": "",
-                    "id": "db8f58c8-d84d-423b-8608-58639a692b4d",
-                    "path": "<Gamepad>/rightTrigger",
+                    "id": "54a109f1-823a-4268-8c9f-45a72ff13d84",
+                    "path": "<Gamepad>/leftShoulder",
                     "interactions": "",
                     "processors": "",
                     "groups": "",
-                    "action": "Sprint",
+                    "action": "Climb",
                     "isComposite": false,
                     "isPartOfComposite": false
                 },

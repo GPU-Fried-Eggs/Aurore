@@ -138,12 +138,22 @@ namespace Character.States
             in CharacterAspect aspect)
         {
             ref var characterBody = ref aspect.KinematicAspect.CharacterBody.ValueRW;
+            ref var characterControl = ref aspect.CharacterControl.ValueRW;
             ref var stateMachine = ref aspect.StateMachine.ValueRW;
 
             if (characterBody.IsGrounded)
             {
                 stateMachine.TransitionToState(CharacterState.GroundMove, ref context, ref baseContext, in aspect);
                 return true;
+            }
+
+            if (characterControl.ClimbPressed)
+            {
+                if (ClimbingState.CanStartClimbing(ref context, ref baseContext, in aspect))
+                {
+                    stateMachine.TransitionToState(CharacterState.Climbing, ref context, ref baseContext, in aspect);
+                    return true;
+                }
             }
 
             return aspect.DetectGlobalTransitions(ref context, ref baseContext);
