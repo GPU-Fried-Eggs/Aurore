@@ -8,7 +8,7 @@ namespace Character.Hybrid
     [AlwaysSynchronizeSystem]
     [UpdateInGroup(typeof(SimulationSystemGroup), OrderLast = true)]
     [UpdateAfter(typeof(EndSimulationEntityCommandBufferSystem))]
-    public partial class PlatformerCharacterHybridSystem : SystemBase
+    public partial class CharacterHybridSystem : SystemBase
     {
         protected override void OnUpdate()
         {
