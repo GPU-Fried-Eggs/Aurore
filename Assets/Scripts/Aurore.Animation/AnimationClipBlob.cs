@@ -15,7 +15,8 @@ public enum BindingType : short
 public struct KeyFrame
 {
     public float V;
-    public float InTan, OutTan;
+    public float InTan;
+    public float OutTan;
     public float Time;
 }
 

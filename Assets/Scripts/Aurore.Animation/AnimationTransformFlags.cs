@@ -48,6 +48,7 @@ public struct AnimationTransformFlags
 	public static unsafe AnimationTransformFlags CreateFromBufferRW(in NativeList<ulong> buf, int bufElementOffset, int boneCount)
 	{
 		var rwPtr = buf.GetUnsafePtr();
+
 		return new AnimationTransformFlags
 		{
 			m_TransformFlags = GetRigTransformFlagsInternal(rwPtr, buf.Length * sizeof(ulong), bufElementOffset, boneCount)
@@ -58,6 +59,7 @@ public struct AnimationTransformFlags
 	public static unsafe AnimationTransformFlags CreateFromBufferRO(in NativeList<ulong> buf, int bufElementOffset, int boneCount)
 	{
 		var roPtr = buf.GetUnsafeReadOnlyPtr();
+
 		return new AnimationTransformFlags
 		{
 			m_TransformFlags = GetRigTransformFlagsInternal(roPtr, buf.Length * sizeof(ulong), bufElementOffset, boneCount)
