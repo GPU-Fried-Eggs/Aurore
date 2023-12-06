@@ -8,6 +8,33 @@ using Utilities;
 
 namespace Character
 {
+    [UpdateInGroup(typeof(InitializationSystemGroup))]
+    [RequireMatchingQueriesForUpdate]
+    [BurstCompile]
+    public partial struct CharacterInitializationSystem : ISystem
+    {
+        [BurstCompile]
+        public void OnUpdate(ref SystemState state)
+        {
+            var ecb = SystemAPI.GetSingletonRW<EndSimulationEntityCommandBufferSystem.Singleton>().ValueRW.CreateCommandBuffer(state.WorldUnmanaged);
+            var linkedEntitiesLookup = SystemAPI.GetBufferLookup<LinkedEntityGroup>(true);
+
+            foreach (var (character, stateMachine, entity) in SystemAPI
+                         .Query<RefRW<CharacterData>, RefRW<CharacterStateMachine>>()
+                         .WithNone<CharacterInitialized>()
+                         .WithEntityAccess())
+            {
+                // Make sure the transform system has done a pass on it first
+                if (linkedEntitiesLookup.HasBuffer(entity))
+                {
+                    ecb.Instantiate(character.ValueRO.MeshPrefab);
+
+                    ecb.AddComponent<CharacterInitialized>(entity);
+                }
+            }
+        }
+    }
+
     [UpdateInGroup(typeof(KinematicCharacterPhysicsUpdateGroup))]
     [BurstCompile]
     public partial struct CharacterPhysicsUpdateSystem : ISystem

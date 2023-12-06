@@ -364,15 +364,15 @@ public class AnimatorControllerBaker: Baker<Animator>
 	private bool GetNormalizedBlendValuesProp(BlendTree blendTree)
 	{
 		//	Hacky way to extract "Normalized Blend Values" prop
-		var enable = false;
+		var propertyFlag = false;
 
 		using (var so = new SerializedObject(blendTree))
 		{
 			var p = so.FindProperty("m_NormalizedBlendValues");
-			if (p != null) enable = p.boolValue;
+			if (p != null) propertyFlag = p.boolValue;
 		}
 
-		return enable;
+		return propertyFlag;
 	}
 
 	private RTP.State GenerateControllerStateComputationData(AnimatorState state,

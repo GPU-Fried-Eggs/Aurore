@@ -368,7 +368,7 @@ MonoBehaviour:
   MeshPrefab: {fileID: 1126443397040709475, guid: 46d40125d43a6c54c8c6f74a5bbe9220, type: 3}
   DefaultCameraTarget: {fileID: 5882012051128130332}
   SwimmingCameraTarget: {fileID: 7525399035363141752}
-  ClimbingCameraTarget: {fileID: 0}
+  ClimbingCameraTarget: {fileID: 3791661281898145632}
   CrouchingCameraTarget: {fileID: 3780403037065582510}
   MeshRoot: {fileID: 6541080027917556602}
   SwimmingDetectionPoint: {fileID: 6558999685716323259}
@@ -440,7 +440,7 @@ GameObject:
   m_Layer: 0
   m_Name: ClimbingCameraTarget
   m_TagString: Untagged
-  m_Icon: {fileID: 3306451490063965843, guid: 0000000000000000d000000000000000, type: 0}
+  m_Icon: {fileID: 4422084297763085224, guid: 0000000000000000d000000000000000, type: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1

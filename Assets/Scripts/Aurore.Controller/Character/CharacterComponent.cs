@@ -17,6 +17,7 @@ namespace Character
         public Entity ClimbingCameraTargetEntity;
         public Entity CrouchingCameraTargetEntity;
         public Entity MeshRootEntity;
+        public Entity MeshPrefab;
 
         [Header("Ground movement")]
         public float GroundRunMaxSpeed;
@@ -89,6 +90,8 @@ namespace Character
         [HideInInspector] public bool IsSprinting;
         [HideInInspector] public bool IsOnStickySurface;
     }
+
+    public struct CharacterInitialized : IComponentData { }
 
     [Serializable]
     public struct CharacterControl : IComponentData

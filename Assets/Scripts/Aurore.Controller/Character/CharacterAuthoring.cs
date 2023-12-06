@@ -1,5 +1,4 @@
-﻿using Character.Hybrid;
-using Character.Kinematic;
+﻿using Character.Kinematic;
 using Unity.Entities;
 using UnityEngine;
 using Utilities;
@@ -36,12 +35,13 @@ namespace Character
 
                 authoring.Character.LocalSwimmingDetectionPoint = authoring.SwimmingDetectionPoint.transform.localPosition;
 
+                authoring.Character.MeshPrefab = GetEntity(authoring.MeshPrefab, TransformUsageFlags.Dynamic);
+
                 var entity = GetEntity(TransformUsageFlags.Dynamic);
 
                 AddComponent(entity, authoring.Character);
                 AddComponent(entity, new CharacterControl());
                 AddComponent(entity, new CharacterStateMachine());
-                AddComponentObject(entity, new CharacterHybridData { MeshPrefab = authoring.MeshPrefab });
             }
         }
     }

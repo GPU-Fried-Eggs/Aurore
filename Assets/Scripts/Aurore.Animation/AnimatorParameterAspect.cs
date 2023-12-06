@@ -3,9 +3,8 @@ using FixedStringName = Unity.Collections.FixedString512Bytes;
 
 public readonly partial struct AnimatorParametersAspect: IAspect
 {
-	[Optional]
-	readonly RefRO<AnimatorControllerParameterIndexTableComponent> m_IndexTable;
-	readonly DynamicBuffer<AnimatorControllerParameterComponent> m_ParametersArr;
+	[Optional] private readonly RefRO<AnimatorControllerParameterIndexTableComponent> m_IndexTable;
+	private readonly DynamicBuffer<AnimatorControllerParameterComponent> m_ParametersArr;
 
 	public float GetFloatParameter(FastAnimatorParameter fp) => GetParameterValue(fp).floatValue;
 	public int GetIntParameter(FastAnimatorParameter fp) => GetParameterValue(fp).intValue;
@@ -29,7 +28,7 @@ public readonly partial struct AnimatorParametersAspect: IAspect
 
 	public ParameterValue GetParameterValue(uint parameterHash)
 	{
-		var fp = new FastAnimatorParameter()
+		var fp = new FastAnimatorParameter
 		{
 			Hash = parameterHash,
 			ParamName = default,
@@ -53,7 +52,7 @@ public readonly partial struct AnimatorParametersAspect: IAspect
 
 	public void SetTrigger(FastAnimatorParameter fp)
 	{
-		SetParameterValue(fp, new ParameterValue() { boolValue = true });
+		SetParameterValue(fp, new ParameterValue { boolValue = true });
 	}
 
 	public void SetParameterValueByIndex(int paramIndex, ParameterValue value)
@@ -63,7 +62,7 @@ public readonly partial struct AnimatorParametersAspect: IAspect
 
 	public void SetParameterValue(uint parameterHash, ParameterValue value)
 	{
-		var fp = new FastAnimatorParameter()
+		var fp = new FastAnimatorParameter
 		{
 			Hash = parameterHash,
 			ParamName = default,
@@ -83,6 +82,7 @@ public readonly partial struct AnimatorParametersAspect: IAspect
 			? fp.GetRuntimeParameterIndex(m_IndexTable.ValueRO.SeedTable, m_ParametersArr)
 			: fp.GetRuntimeParameterIndex(m_ParametersArr);
 	}
+
 	public bool HasParameter(FastAnimatorParameter fp)
 	{
 		return GetParameterIndex(fp) != -1;
@@ -90,7 +90,7 @@ public readonly partial struct AnimatorParametersAspect: IAspect
 
 	public bool HasParameter(uint parameterHash)
 	{
-		var fp = new FastAnimatorParameter()
+		var fp = new FastAnimatorParameter
 		{
 			Hash = parameterHash,
 			ParamName = default,

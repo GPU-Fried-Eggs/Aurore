@@ -27,7 +27,7 @@ public partial struct AnimationProcessSystem: ISystem
 		m_BonePosesOffsetsArr = new (Allocator.Persistent);
 
 		using var builder = new EntityQueryBuilder(Allocator.Temp)
-		.WithAll<RigDefinitionComponent, AnimationToProcessComponent>();
+			.WithAll<RigDefinitionComponent, AnimationToProcessComponent>();
 		m_AnimatedObjectQuery = state.GetEntityQuery(builder);
 	}
 
@@ -183,14 +183,10 @@ public partial struct AnimationProcessSystem: ISystem
 		public NativeList<BoneTransform> AnimatedBonesBuffer;
 		[WriteOnly, NativeDisableContainerSafetyRestriction]
 		public NativeList<ulong> BoneTransformFlagsArr;
-		[ReadOnly]
-		public NativeList<int3> BoneToEntityArr;
-		[ReadOnly]
-		public BufferLookup<AnimationToProcessComponent> AnimationsToProcessLookup;
-		[ReadOnly]
-		public NativeList<RigDefinitionComponent> RigDefs;
-		[ReadOnly]
-		public NativeList<Entity> EntityArr;
+		[ReadOnly] public NativeList<int3> BoneToEntityArr;
+		[ReadOnly] public BufferLookup<AnimationToProcessComponent> AnimationsToProcessLookup;
+		[ReadOnly] public NativeList<RigDefinitionComponent> RigDefs;
+		[ReadOnly] public NativeList<Entity> EntityArr;
 		
 		[NativeDisableParallelForRestriction]
 		public BufferLookup<RootMotionAnimationStateComponent> RootMotionAnimStateBufferLookup;

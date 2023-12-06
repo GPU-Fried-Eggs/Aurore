@@ -50,25 +50,25 @@ public class RigDefinitionAuthoring: MonoBehaviour
 			s_ParentBoneNameField = typeof(SkeletonBone).GetField("parentName", BindingFlags.NonPublic | BindingFlags.Instance);
 		}
 
-		public override void Bake(RigDefinitionAuthoring a)
+		public override void Bake(RigDefinitionAuthoring authoring)
 		{
 			var animator = GetComponent<Animator>();
-			var e = GetEntity(TransformUsageFlags.Dynamic);
+			var entity = GetEntity(TransformUsageFlags.Dynamic);
 			
-			var processedRig = CreateRigDefinitionFromRigAuthoring(e, a, animator);
-			var acbd = new RigDefinitionBakerComponent
+			var processedRig = CreateRigDefinitionFromRigAuthoring(entity, authoring, animator);
+			var component = new RigDefinitionBakerComponent
 			{
 				RigDefData = processedRig,
 				TargetEntity = GetEntity(TransformUsageFlags.Dynamic),
 				Hash = processedRig.GetHashCode(),
 				ApplyRootMotion = animator.applyRootMotion,
-			#if AURORE_DEBUG
+#if AURORE_DEBUG
 				Name = a.name
-			#endif
+#endif
 			};
 	
-			DependsOn(a);
-			AddComponent(e, acbd);
+			DependsOn(authoring);
+			AddComponent(entity, component);
 		}
 
 		private InternalSkeletonBone CreateSkeletonBoneFromTransform(Transform t, string parentName)
@@ -84,14 +84,14 @@ public class RigDefinitionAuthoring: MonoBehaviour
 
 		private void TransformHierarchyWalk(Transform parent, List<InternalSkeletonBone> sb)
 		{
-			for (int i = 0; i < parent.childCount; ++i)
+			for (var i = 0; i < parent.childCount; ++i)
 			{
-				var c = parent.GetChild(i);
-				var ct = c.transform;
-				var bone = CreateSkeletonBoneFromTransform(ct, parent.name);
+				var child = parent.GetChild(i);
+				var childTransform = child.transform;
+				var bone = CreateSkeletonBoneFromTransform(childTransform, parent.name);
 				sb.Add(bone);
 	
-				TransformHierarchyWalk(ct, sb);
+				TransformHierarchyWalk(childTransform, sb);
 			}
 		}
 
@@ -106,98 +106,94 @@ public class RigDefinitionAuthoring: MonoBehaviour
 			return sb;
 		}
 
-		private int GetRigRootBoneIndex(Animator anm, List<InternalSkeletonBone> rigBones)
+		private int GetRigRootBoneIndex(Animator animator, List<InternalSkeletonBone> rigBones)
 		{
-			var a = anm.avatar;
-			if (a == null) return 0;
+			var avatar = animator.avatar;
+			if (avatar == null) return 0;
 			
-			var rootBoneName = a.GetRootMotionNodeName();
-			if (anm.avatar.isHuman)
+			var rootBoneName = avatar.GetRootMotionNodeName();
+			if (animator.avatar.isHuman)
 			{
-				var hd = anm.avatar.humanDescription;
-				var humanBoneIndexInDesc = Array.FindIndex(hd.human, x => x.humanName == "Hips");
-				rootBoneName = hd.human[humanBoneIndexInDesc].boneName;
+				var humanDescription = animator.avatar.humanDescription;
+				var humanBoneIndexInDesc = Array.FindIndex(humanDescription.human, x => x.humanName == "Hips");
+				rootBoneName = humanDescription.human[humanBoneIndexInDesc].boneName;
 			}
-			var rv = rigBones.FindIndex(x => x.Name == rootBoneName);
-			return math.max(rv, 0);
+
+			return math.max(rigBones.FindIndex(x => x.Name == rootBoneName), 0);
 		}
 
 		private List<InternalSkeletonBone> CreateInternalRigRepresentation(Avatar avatar, RigDefinitionAuthoring rd)
 		{
-			if (avatar == null)
-			{
-				return CreateAvatarFromObjectHierarchy(rd.gameObject);
-			}
+			if (avatar == null) return CreateAvatarFromObjectHierarchy(rd.gameObject);
 			
 			var skeleton = avatar.humanDescription.skeleton;
-			var rv = new List<InternalSkeletonBone>();
+			var skeletonBones = new List<InternalSkeletonBone>();
 			for (var i = 0; i < skeleton.Length; ++i)
 			{
-				var sb = skeleton[i];
-				var isb = new InternalSkeletonBone
+				var skeletonBone = skeleton[i];
+				skeletonBones.Add(new InternalSkeletonBone
 				{
-					Name = sb.name,
-					Position = sb.position,
-					Rotation = sb.rotation,
-					Scale = sb.scale,
-					ParentName = (string)s_ParentBoneNameField.GetValue(sb)
-				};
-				rv.Add(isb);
+					Name = skeletonBone.name,
+					Position = skeletonBone.position,
+					Rotation = skeletonBone.rotation,
+					Scale = skeletonBone.scale,
+					ParentName = (string)s_ParentBoneNameField.GetValue(skeletonBone)
+				});
 			}
 	
-			return rv;
+			return skeletonBones;
 		}
 
 		private RTP.RigDefinition CreateRigDefinitionFromRigAuthoring(Entity rigEntity, RigDefinitionAuthoring rigDef, Animator animator)
 		{
 			var avatar = animator.avatar;
 	
-			var rv = new RTP.RigDefinition();
-			rv.RigBones = new UnsafeList<RTP.RigBoneInfo>(60, Allocator.Persistent);
+			var bakedRigDefinition = new RTP.RigDefinition();
+			bakedRigDefinition.RigBones = new UnsafeList<RTP.RigBoneInfo>(60, Allocator.Persistent);
 	
-			rv.Name = rigDef.gameObject.name;
-			rv.IsHuman = avatar != null && avatar.isHuman;
+			bakedRigDefinition.Name = rigDef.gameObject.name;
+			bakedRigDefinition.IsHuman = avatar != null && avatar.isHuman;
 	
 			var skeletonBones = CreateInternalRigRepresentation(avatar, rigDef);
 			if (skeletonBones.Count == 0)
 			{
 				Debug.LogError($"Unity avatar '{avatar.name}' setup is incorrect.");
-				return rv;
+				return bakedRigDefinition;
 			}
 	
 			for (var i = 0; i < skeletonBones.Count; ++i)
 			{
 				var ab = CreateRigBoneInfo(rigDef, skeletonBones, avatar, i);
-				rv.RigBones.Add(ab);
+				bakedRigDefinition.RigBones.Add(ab);
 			}
 			
-			rv.RootBoneIndex = GetRigRootBoneIndex(animator, skeletonBones);
+			bakedRigDefinition.RootBoneIndex = GetRigRootBoneIndex(animator, skeletonBones);
 			
-			ProcessBoneStrippingMask(rigEntity, rigDef, rv.RigBones);
+			ProcessBoneStrippingMask(rigEntity, rigDef, bakedRigDefinition.RigBones);
 	
-			return rv;
+			return bakedRigDefinition;
 		}
 
-		private RTP.RigBoneInfo.HumanRotationData GetHumanoidBoneRotationData(Avatar a, string boneName)
+		private RTP.RigBoneInfo.HumanRotationData GetHumanoidBoneRotationData(Avatar avatar, string boneName)
 		{
-			if (a == null || !a.isHuman)
-				return RTP.RigBoneInfo.HumanRotationData.Identity();
+			if (avatar == null || !avatar.isHuman)
+				return RTP.RigBoneInfo.HumanRotationData.Identity;
 	
-			var hd = a.humanDescription;
-			var humanBoneInSkeletonIndex = Array.FindIndex(hd.human, x => x.boneName == boneName);
+			var humanDescription = avatar.humanDescription;
+			var humanBoneInSkeletonIndex = Array.FindIndex(humanDescription.human, x => x.boneName == boneName);
 			if (humanBoneInSkeletonIndex < 0)
-				return RTP.RigBoneInfo.HumanRotationData.Identity();
+				return RTP.RigBoneInfo.HumanRotationData.Identity;
 				
 			var humanBones = HumanTrait.BoneName;
-			var humanBoneDef = hd.human[humanBoneInSkeletonIndex];
+			var humanBoneDef = humanDescription.human[humanBoneInSkeletonIndex];
 			var humanBoneId = Array.FindIndex(humanBones, x => x == humanBoneDef.humanName);
 			Debug.Assert(humanBoneId >= 0);
 	
-			var rv = RTP.RigBoneInfo.HumanRotationData.Identity();
-			rv.PreRot = a.GetPreRotation(humanBoneId);
-			rv.PostRot = a.GetPostRotation(humanBoneId);
-			rv.Sign = a.GetLimitSign(humanBoneId);
-			rv.HumanRigIndex = humanBoneId;
+			var bakedRotationData = RTP.RigBoneInfo.HumanRotationData.Identity;
+			bakedRotationData.PreRot = avatar.GetPreRotation(humanBoneId);
+			bakedRotationData.PostRot = avatar.GetPostRotation(humanBoneId);
+			bakedRotationData.Sign = avatar.GetLimitSign(humanBoneId);
+			bakedRotationData.HumanRigIndex = humanBoneId;
 	
 			var minA = humanBoneDef.limit.min;
 			var maxA = humanBoneDef.limit.max;
@@ -211,18 +207,18 @@ public class RigDefinitionAuthoring: MonoBehaviour
 				maxA.y = HumanTrait.GetMuscleDefaultMax(HumanTrait.MuscleFromBone(humanBoneId, 1));
 				maxA.z = HumanTrait.GetMuscleDefaultMax(HumanTrait.MuscleFromBone(humanBoneId, 2));
 			}
-			rv.MinAngle = math.radians(minA);
-			rv.MaxAngle = math.radians(maxA);
+			bakedRotationData.MinAngle = math.radians(minA);
+			bakedRotationData.MaxAngle = math.radians(maxA);
 	
-			return rv;
+			return bakedRotationData;
 		}
 
-		private Entity GetEntityForBone(Transform t, TransformUsageFlags boneFlags)
+		private Entity GetEntityForBone(Transform transform, TransformUsageFlags boneFlags)
 		{
-			if (t == null || t.GetComponent<SkinnedMeshRenderer>() != null)
+			if (transform == null || transform.GetComponent<SkinnedMeshRenderer>() != null)
 				return Entity.Null;
 	
-			return GetEntity(t, boneFlags);
+			return GetEntity(transform, boneFlags);
 		}
 
 		private RTP.RigBoneInfo CreateRigBoneInfo(RigDefinitionAuthoring rda, List<InternalSkeletonBone> skeletonBones, Avatar avatar, int boneIndex)
@@ -271,15 +267,15 @@ public class RigDefinitionAuthoring: MonoBehaviour
 		{
 			if (rda.boneStrippingMask == null) return;
 	
-			var m = rda.boneStrippingMask;
+			var avatarMask = rda.boneStrippingMask;
 			var bonesToRemove = AddBuffer<BoneEntitiesToRemove>(rigEntity);
 	        
-			for (int i = 0; i < m.transformCount; ++i)
+			for (var i = 0; i < avatarMask.transformCount; ++i)
 			{
-				var isActive = m.GetTransformActive(i);
+				var isActive = avatarMask.GetTransformActive(i);
 				if (isActive) continue;
 				
-				var path = m.GetTransformPath(i);
+				var path = avatarMask.GetTransformPath(i);
 				var boneIndex = 0;
 				for (; boneIndex < rigBones.Length && !path.EndsWith(rigBones[boneIndex].Name.ToString()); ++boneIndex) { }
 	

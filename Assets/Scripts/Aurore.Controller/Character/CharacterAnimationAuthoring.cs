@@ -14,6 +14,9 @@ namespace Character
 
                 AddComponent(entity, new CharacterAnimation
                 {
+                    ClipIndexParameter = new FastAnimatorParameter("ClipIndex"),
+                    SpeedMultiplierParameter = new FastAnimatorParameter("Speed"),
+
                     IdleClip = 0,
                     RunClip = 1,
                     SprintClip = 2,

@@ -157,7 +157,7 @@ namespace Utilities
         public static quaternion CreateRotationWithUpPriority(float3 up, float3 forward)
         {
             if (math.abs(math.dot(forward, up)) == 1f) forward = math.forward();
-            forward = math.normalizesafe(MathUtilities.ProjectOnPlane(forward, up));
+            forward = math.normalizesafe(ProjectOnPlane(forward, up));
 
             return quaternion.LookRotationSafe(forward, up);
         }

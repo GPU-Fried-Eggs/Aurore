@@ -9,7 +9,6 @@ using Unity.Collections.LowLevel.Unsafe;
 using Unity.Mathematics;
 using UnityEditor;
 using UnityEngine;
-using Allocator = Unity.Collections.Allocator;
 using FixedStringName = Unity.Collections.FixedString512Bytes;
 using Hash128 = Unity.Entities.Hash128;
 

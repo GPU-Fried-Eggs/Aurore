@@ -50,8 +50,7 @@ public partial class AnimatorControllerConversionSystem: SystemBase
 	protected override void OnDestroy()
 	{
 		using var controllersData = m_AnimatorsQuery.ToComponentDataArray<AnimatorControllerBakerData>(Allocator.Temp);
-		foreach (var c in controllersData)
-			c.ControllerData.Dispose();
+		foreach (var c in controllersData) c.ControllerData.Dispose();
 	}
 
 	protected override void OnUpdate()
@@ -62,8 +61,7 @@ public partial class AnimatorControllerConversionSystem: SystemBase
 
 #if AURORE_DEBUG
 		SystemAPI.TryGetSingleton<DebugConfigurationComponent>(out var dc);
-		if (dc.logAnimatorBaking)
-			Debug.Log($"=== [AnimatorControllerConversionSystem] BEGIN CONVERSION ===");
+		if (dc.logAnimatorBaking) Debug.Log($"=== [AnimatorControllerConversionSystem] BEGIN CONVERSION ===");
 #endif
 
 		//	Create blob assets
@@ -144,8 +142,10 @@ public partial class AnimatorControllerConversionSystem: SystemBase
 		[NativeDisableContainerSafetyRestriction]
 		public NativeSlice<AnimatorBlobAssets> OutBlobAssets;
 		public AnimatorControllerBakerData InData;
-		[ReadOnly]
-		public bool DoLogging;
+
+#if AURORE_DEBUG
+		[ReadOnly] public bool DoLogging;
+#endif
 
 		private void AddTransitionBlob(RTP.Transition transition,
 			UnsafeList<RTP.State> allStates,
@@ -334,8 +334,7 @@ public partial class AnimatorControllerConversionSystem: SystemBase
 			MathUtils.ShuffleArray(boneHashes.AsSpan(), shuffleIndices.AsArray());
 
 			var bonePerfectHashSeeds = builder.Allocate(ref animationClipBlob.BonesPerfectHashSeedTable, seedValues.Length);
-			for (var i = 0; i < seedValues.Length; ++i)
-				bonePerfectHashSeeds[i] = seedValues[i];
+			for (var i = 0; i < seedValues.Length; ++i) bonePerfectHashSeeds[i] = seedValues[i];
 			
 			AddBoneClipArr(ref builder, ref animationClipBlob.Bones, animationClip.Bones, boneHashes);
 			AddBoneClipArr(ref builder, ref animationClipBlob.Curves, animationClip.Curves, curveHashes);
@@ -355,9 +354,9 @@ public partial class AnimatorControllerConversionSystem: SystemBase
 
 			if (avatarMask.Name.Length != 0)
 			{
-			#if AURORE_DEBUG
+#if AURORE_DEBUG
 				builder.AllocateString(ref avatarMaskBlob.Name, ref avatarMask.Name);
-			#endif
+#endif
 			}
 
 			var avatarMaskArr = builder.Allocate(ref avatarMaskBlob.IncludedBoneHashes, avatarMask.IncludedBonePaths.Length);
