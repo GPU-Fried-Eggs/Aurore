@@ -1,7 +1,6 @@
 using Unity.Entities;
 using Unity.Jobs;
 using Unity.Physics.Systems;
-using Unity.Collections;
 using Unity.Burst;
 
 namespace Unity.Physics.Stateful
@@ -21,41 +20,20 @@ namespace Unity.Physics.Stateful
     public partial struct StatefulTriggerEventBufferSystem : ISystem
     {
         private StatefulSimulationEventBuffers<StatefulTriggerEvent> m_StateFulEventBuffers;
-        private ComponentHandles m_ComponentHandles;
         private EntityQuery m_TriggerEventQuery;
-
-        struct ComponentHandles
-        {
-            public ComponentLookup<StatefulTriggerEventExclude> EventExcludes;
-            public BufferLookup<StatefulTriggerEvent> EventBuffers;
-
-            public ComponentHandles(ref SystemState systemState)
-            {
-                EventExcludes = systemState.GetComponentLookup<StatefulTriggerEventExclude>(true);
-                EventBuffers = systemState.GetBufferLookup<StatefulTriggerEvent>();
-            }
-
-            public void Update(ref SystemState systemState)
-            {
-                EventExcludes.Update(ref systemState);
-                EventBuffers.Update(ref systemState);
-            }
-        }
 
         [BurstCompile]
         public void OnCreate(ref SystemState state)
         {
-            var builder = new EntityQueryBuilder(Allocator.Temp)
-                .WithAllRW<StatefulTriggerEvent>()
-                .WithNone<StatefulTriggerEventExclude>();
-
             m_StateFulEventBuffers = new StatefulSimulationEventBuffers<StatefulTriggerEvent>();
             m_StateFulEventBuffers.AllocateBuffers();
 
-            m_TriggerEventQuery = state.GetEntityQuery(builder);
+            m_TriggerEventQuery = SystemAPI.QueryBuilder()
+                .WithAllRW<StatefulTriggerEvent>()
+                .WithNone<StatefulTriggerEventExclude>().Build();
             state.RequireForUpdate(m_TriggerEventQuery);
 
-            m_ComponentHandles = new ComponentHandles(ref state);
+            state.RequireForUpdate<SimulationSingleton>();
         }
 
         [BurstCompile]
@@ -65,16 +43,8 @@ namespace Unity.Physics.Stateful
         }
 
         [BurstCompile]
-        public partial struct ClearTriggerEventDynamicBufferJob : IJobEntity
-        {
-            private void Execute(ref DynamicBuffer<StatefulTriggerEvent> eventBuffer) => eventBuffer.Clear();
-        }
-
-        [BurstCompile]
         public void OnUpdate(ref SystemState state)
         {
-            m_ComponentHandles.Update(ref state);
-
             state.Dependency = new ClearTriggerEventDynamicBufferJob()
                 .ScheduleParallel(m_TriggerEventQuery, state.Dependency);
 
@@ -83,21 +53,26 @@ namespace Unity.Physics.Stateful
             var currentEvents = m_StateFulEventBuffers.Current;
             var previousEvents = m_StateFulEventBuffers.Previous;
 
-            state.Dependency = new StatefulEventCollectionJobs.CollectTriggerEvents
+            state.Dependency = new CollectTriggerEvents
             {
                 TriggerEvents = currentEvents
             }.Schedule(SystemAPI.GetSingleton<SimulationSingleton>(), state.Dependency);
 
-            state.Dependency = new StatefulEventCollectionJobs
-                .ConvertEventStreamToDynamicBufferJob<StatefulTriggerEvent, StatefulTriggerEventExclude>
+            state.Dependency = new ConvertEventStreamToDynamicBufferJob<StatefulTriggerEvent, StatefulTriggerEventExclude>
             {
                 CurrentEvents = currentEvents,
                 PreviousEvents = previousEvents,
-                EventBuffers = m_ComponentHandles.EventBuffers,
+                EventBuffers = SystemAPI.GetBufferLookup<StatefulTriggerEvent>(),
 
                 UseExcludeComponent = true,
-                EventExcludeLookup = m_ComponentHandles.EventExcludes
+                EventExcludeLookup = SystemAPI.GetComponentLookup<StatefulTriggerEventExclude>(true)
             }.Schedule(state.Dependency);
+        }
+
+        [BurstCompile]
+        public partial struct ClearTriggerEventDynamicBufferJob : IJobEntity
+        {
+            private void Execute(ref DynamicBuffer<StatefulTriggerEvent> eventBuffer) => eventBuffer.Clear();
         }
     }
 }

@@ -27,9 +27,12 @@ namespace Character
                 // Make sure the transform system has done a pass on it first
                 if (linkedEntitiesLookup.HasBuffer(entity))
                 {
-                    ecb.Instantiate(character.ValueRO.MeshPrefab);
+                    var meshEntity = ecb.Instantiate(character.ValueRO.MeshPrefab);
 
-                    ecb.AddComponent<CharacterInitialized>(entity);
+                    ecb.AddComponent(entity, new CharacterInitialized
+                    {
+                        Reference = meshEntity
+                    });
                 }
             }
         }

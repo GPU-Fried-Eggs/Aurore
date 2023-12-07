@@ -91,7 +91,10 @@ namespace Character
         [HideInInspector] public bool IsOnStickySurface;
     }
 
-    public struct CharacterInitialized : IComponentData { }
+    public struct CharacterInitialized : IComponentData
+    {
+        public Entity Reference;
+    }
 
     [Serializable]
     public struct CharacterControl : IComponentData

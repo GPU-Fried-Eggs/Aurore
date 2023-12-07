@@ -19,40 +19,19 @@ namespace Unity.Physics.Stateful
     public partial struct StatefulCollisionEventBufferSystem : ISystem
     {
         private StatefulSimulationEventBuffers<StatefulCollisionEvent> m_StateFulEventBuffers;
-        private ComponentHandles m_Handles;
 
         // Component that does nothing. Made in order to use a generic job. See OnUpdate() method for details.
         internal struct DummyExcludeComponent : IComponentData {};
-
-        struct ComponentHandles
-        {
-            public ComponentLookup<DummyExcludeComponent> EventExcludes;
-            public ComponentLookup<StatefulCollisionEventDetails> EventDetails;
-            public BufferLookup<StatefulCollisionEvent> EventBuffers;
-
-            public ComponentHandles(ref SystemState systemState)
-            {
-                EventExcludes = systemState.GetComponentLookup<DummyExcludeComponent>(true);
-                EventDetails = systemState.GetComponentLookup<StatefulCollisionEventDetails>(true);
-                EventBuffers = systemState.GetBufferLookup<StatefulCollisionEvent>(false);
-            }
-
-            public void Update(ref SystemState systemState)
-            {
-                EventExcludes.Update(ref systemState);
-                EventBuffers.Update(ref systemState);
-                EventDetails.Update(ref systemState);
-            }
-        }
 
         [BurstCompile]
         public void OnCreate(ref SystemState state)
         {
             m_StateFulEventBuffers = new StatefulSimulationEventBuffers<StatefulCollisionEvent>();
             m_StateFulEventBuffers.AllocateBuffers();
-            state.RequireForUpdate<StatefulCollisionEvent>();
 
-            m_Handles = new ComponentHandles(ref state);
+            state.RequireForUpdate<StatefulCollisionEvent>();
+            state.RequireForUpdate<SimulationSingleton>();
+            state.RequireForUpdate<PhysicsWorldSingleton>();
         }
 
         [BurstCompile]
@@ -62,16 +41,8 @@ namespace Unity.Physics.Stateful
         }
 
         [BurstCompile]
-        public partial struct ClearCollisionEventDynamicBufferJob : IJobEntity
-        {
-            private void Execute(ref DynamicBuffer<StatefulCollisionEvent> eventBuffer) => eventBuffer.Clear();
-        }
-
-        [BurstCompile]
         public void OnUpdate(ref SystemState state)
         {
-            m_Handles.Update(ref state);
-
             state.Dependency = new ClearCollisionEventDynamicBufferJob()
                 .ScheduleParallel(state.Dependency);
 
@@ -80,24 +51,28 @@ namespace Unity.Physics.Stateful
             var currentEvents = m_StateFulEventBuffers.Current;
             var previousEvents = m_StateFulEventBuffers.Previous;
 
-            state.Dependency = new StatefulEventCollectionJobs.
-                CollectCollisionEventsWithDetails
+            state.Dependency = new CollectCollisionEventsWithDetails
             {
                 CollisionEvents = currentEvents,
                 PhysicsWorld = SystemAPI.GetSingleton<PhysicsWorldSingleton>().PhysicsWorld,
-                EventDetails = m_Handles.EventDetails
+                EventDetails = SystemAPI.GetComponentLookup<StatefulCollisionEventDetails>(true)
             }.Schedule(SystemAPI.GetSingleton<SimulationSingleton>(), state.Dependency);
 
-            state.Dependency = new StatefulEventCollectionJobs.
-                ConvertEventStreamToDynamicBufferJob<StatefulCollisionEvent, DummyExcludeComponent>
+            state.Dependency = new ConvertEventStreamToDynamicBufferJob<StatefulCollisionEvent, DummyExcludeComponent>
             {
                 CurrentEvents = currentEvents,
                 PreviousEvents = previousEvents,
-                EventBuffers = m_Handles.EventBuffers,
+                EventBuffers = SystemAPI.GetBufferLookup<StatefulCollisionEvent>(),
 
                 UseExcludeComponent = false,
-                EventExcludeLookup = m_Handles.EventExcludes
+                EventExcludeLookup = SystemAPI.GetComponentLookup<DummyExcludeComponent>(true)
             }.Schedule(state.Dependency);
+        }
+
+        [BurstCompile]
+        public partial struct ClearCollisionEventDynamicBufferJob : IJobEntity
+        {
+            private void Execute(ref DynamicBuffer<StatefulCollisionEvent> eventBuffer) => eventBuffer.Clear();
         }
     }
 }

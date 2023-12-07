@@ -102,95 +102,92 @@ namespace Unity.Physics.Stateful
         }
     }
 
-    public static class StatefulEventCollectionJobs
+    [BurstCompile]
+    public struct CollectTriggerEvents : ITriggerEventsJob
     {
-        [BurstCompile]
-        public struct CollectTriggerEvents : ITriggerEventsJob
+        public NativeList<StatefulTriggerEvent> TriggerEvents;
+
+        public void Execute(TriggerEvent triggerEvent) => TriggerEvents.Add(new StatefulTriggerEvent(triggerEvent));
+    }
+
+    [BurstCompile]
+    public struct CollectCollisionEvents : ICollisionEventsJob
+    {
+        public NativeList<StatefulCollisionEvent> CollisionEvents;
+
+        public void Execute(CollisionEvent collisionEvent) => CollisionEvents.Add(new StatefulCollisionEvent(collisionEvent));
+    }
+
+    [BurstCompile]
+    public struct CollectCollisionEventsWithDetails : ICollisionEventsJob
+    {
+        public NativeList<StatefulCollisionEvent> CollisionEvents;
+        [ReadOnly] public PhysicsWorld PhysicsWorld;
+        [ReadOnly] public ComponentLookup<StatefulCollisionEventDetails> EventDetails;
+        public bool ForceCalculateDetails;
+
+        public void Execute(CollisionEvent collisionEvent)
         {
-            public NativeList<StatefulTriggerEvent> TriggerEvents;
+            var statefulCollisionEvent = new StatefulCollisionEvent(collisionEvent);
 
-            public void Execute(TriggerEvent triggerEvent) => TriggerEvents.Add(new StatefulTriggerEvent(triggerEvent));
-        }
+            // Check if we should calculate the collision details
+            var calculateDetails = ForceCalculateDetails;
 
-        [BurstCompile]
-        public struct CollectCollisionEvents : ICollisionEventsJob
-        {
-            public NativeList<StatefulCollisionEvent> CollisionEvents;
-
-            public void Execute(CollisionEvent collisionEvent) => CollisionEvents.Add(new StatefulCollisionEvent(collisionEvent));
-        }
-
-        [BurstCompile]
-        public struct CollectCollisionEventsWithDetails : ICollisionEventsJob
-        {
-            public NativeList<StatefulCollisionEvent> CollisionEvents;
-            [ReadOnly] public PhysicsWorld PhysicsWorld;
-            [ReadOnly] public ComponentLookup<StatefulCollisionEventDetails> EventDetails;
-            public bool ForceCalculateDetails;
-
-            public void Execute(CollisionEvent collisionEvent)
+            if (!calculateDetails && EventDetails.HasComponent(collisionEvent.EntityA))
             {
-                var statefulCollisionEvent = new StatefulCollisionEvent(collisionEvent);
-
-                // Check if we should calculate the collision details
-                var calculateDetails = ForceCalculateDetails;
-
-                if (!calculateDetails && EventDetails.HasComponent(collisionEvent.EntityA))
-                {
-                    calculateDetails = EventDetails[collisionEvent.EntityA].CalculateDetails;
-                }
-
-                if (!calculateDetails && EventDetails.HasComponent(collisionEvent.EntityB))
-                {
-                    calculateDetails = EventDetails[collisionEvent.EntityB].CalculateDetails;
-                }
-
-                if (calculateDetails)
-                {
-                    var details = collisionEvent.CalculateDetails(ref PhysicsWorld);
-                    statefulCollisionEvent.CollisionDetails = new StatefulCollisionEvent.Details(
-                        details.EstimatedContactPointPositions.Length,
-                        details.EstimatedImpulse,
-                        details.AverageContactPointPosition);
-                }
-
-                CollisionEvents.Add(statefulCollisionEvent);
+                calculateDetails = EventDetails[collisionEvent.EntityA].CalculateDetails;
             }
-        }
 
-        [BurstCompile]
-        public struct ConvertEventStreamToDynamicBufferJob<T, C> : IJob
-            where T : unmanaged, IBufferElementData, IStatefulSimulationEvent<T>
-            where C : unmanaged, IComponentData
-        {
-            public NativeList<T> PreviousEvents;
-            public NativeList<T> CurrentEvents;
-            public BufferLookup<T> EventBuffers;
-
-            public bool UseExcludeComponent;
-            [ReadOnly] public ComponentLookup<C> EventExcludeLookup;
-
-            public void Execute()
+            if (!calculateDetails && EventDetails.HasComponent(collisionEvent.EntityB))
             {
-                var statefulEvents = new NativeList<T>(CurrentEvents.Length, Allocator.Temp);
+                calculateDetails = EventDetails[collisionEvent.EntityB].CalculateDetails;
+            }
 
-                StatefulSimulationEventBuffers<T>.GetStatefulEvents(PreviousEvents, CurrentEvents, statefulEvents);
+            if (calculateDetails)
+            {
+                var details = collisionEvent.CalculateDetails(ref PhysicsWorld);
+                statefulCollisionEvent.CollisionDetails = new StatefulCollisionEvent.Details(
+                    details.EstimatedContactPointPositions.Length,
+                    details.EstimatedImpulse,
+                    details.AverageContactPointPosition);
+            }
 
-                for (var i = 0; i < statefulEvents.Length; i++)
+            CollisionEvents.Add(statefulCollisionEvent);
+        }
+    }
+
+    [BurstCompile]
+    public struct ConvertEventStreamToDynamicBufferJob<T, C> : IJob
+        where T : unmanaged, IBufferElementData, IStatefulSimulationEvent<T>
+        where C : unmanaged, IComponentData
+    {
+        public NativeList<T> PreviousEvents;
+        public NativeList<T> CurrentEvents;
+        public BufferLookup<T> EventBuffers;
+
+        public bool UseExcludeComponent;
+        [ReadOnly] public ComponentLookup<C> EventExcludeLookup;
+
+        public void Execute()
+        {
+            var statefulEvents = new NativeList<T>(CurrentEvents.Length, Allocator.Temp);
+
+            StatefulSimulationEventBuffers<T>.GetStatefulEvents(PreviousEvents, CurrentEvents, statefulEvents);
+
+            for (var i = 0; i < statefulEvents.Length; i++)
+            {
+                var statefulEvent = statefulEvents[i];
+
+                var addToEntityA = EventBuffers.HasBuffer(statefulEvent.EntityA) && (!UseExcludeComponent || !EventExcludeLookup.HasComponent(statefulEvent.EntityA));
+                var addToEntityB = EventBuffers.HasBuffer(statefulEvent.EntityB) && (!UseExcludeComponent || !EventExcludeLookup.HasComponent(statefulEvent.EntityA));
+
+                if (addToEntityA)
                 {
-                    var statefulEvent = statefulEvents[i];
-
-                    var addToEntityA = EventBuffers.HasBuffer(statefulEvent.EntityA) && (!UseExcludeComponent || !EventExcludeLookup.HasComponent(statefulEvent.EntityA));
-                    var addToEntityB = EventBuffers.HasBuffer(statefulEvent.EntityB) && (!UseExcludeComponent || !EventExcludeLookup.HasComponent(statefulEvent.EntityA));
-
-                    if (addToEntityA)
-                    {
-                        EventBuffers[statefulEvent.EntityA].Add(statefulEvent);
-                    }
-                    if (addToEntityB)
-                    {
-                        EventBuffers[statefulEvent.EntityB].Add(statefulEvent);
-                    }
+                    EventBuffers[statefulEvent.EntityA].Add(statefulEvent);
+                }
+                if (addToEntityB)
+                {
+                    EventBuffers[statefulEvent.EntityB].Add(statefulEvent);
                 }
             }
         }
