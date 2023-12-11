@@ -179,6 +179,7 @@ public partial class RigDefinitionConversionSystem : SystemBase
 		var startHash = allRigs[0].Hash;
 
 		using var jobHandles = new NativeList<JobHandle>(allRigs.Length, Allocator.Temp);
+		var blobUniqueIndices = new NativeList<int>(Allocator.Temp);
 
 		for (var i = 1; i <= allRigs.Length; ++i)
 		{
@@ -192,10 +193,12 @@ public partial class RigDefinitionConversionSystem : SystemBase
 				{
 					InData = refRig.RigDefData,
 					OutBlobAssets = blobAssetsSlice,
+					RigHash = new Hash128((uint)rd.Hash, 0, 0, 0)
 				};
 
 				var jobHandle = createBlobAssetsJob.Schedule();
 				jobHandles.Add(jobHandle);
+				blobUniqueIndices.Add(startIndex);
 
 				startHash = rd.Hash;
 				startIndex = i;
@@ -220,6 +223,9 @@ public partial class RigDefinitionConversionSystem : SystemBase
 
 		createComponentDatasJob.ScheduleBatch(allRigs.Length, 32, combineDependencies).Complete();
 
+		//	Register blob assets in store to prevent memory leaks
+		RegisterBlobAssetsInAssetStore(blobAssetsArr, blobUniqueIndices.AsArray());
+
 		ecb.Playback(EntityManager);
 		OnDestroy();
 
@@ -232,12 +238,25 @@ public partial class RigDefinitionConversionSystem : SystemBase
 #endif
 	}
 	
+	private void RegisterBlobAssetsInAssetStore(NativeArray<BlobAssetReference<RigDefinitionBlob>> blobAssets, NativeArray<int> blobUniqueIndices)
+	{
+		var bakingSystem = World.GetExistingSystemManaged<BakingSystem>();
+		var blobAssetStore = bakingSystem.BlobAssetStore;
+		for (var i = 0; i < blobUniqueIndices.Length; ++i)
+		{
+			var idx = blobUniqueIndices[i];
+			var rigDefinitionBlobReference = blobAssets[idx];
+			blobAssetStore.TryAdd(ref rigDefinitionBlobReference);
+		}
+	}
+
 	[BurstCompile]
 	private struct CreateBlobAssetsJob: IJob
 	{
 		[NativeDisableContainerSafetyRestriction]
 		public NativeSlice<BlobAssetReference<RigDefinitionBlob>> OutBlobAssets;
 		public RTP.RigDefinition InData;
+		public Hash128 RigHash;
 
 		public void Execute()
 		{
@@ -248,7 +267,6 @@ public partial class RigDefinitionConversionSystem : SystemBase
 #if AURORE_DEBUG
 			bb.AllocateString(ref c.Name, ref data.Name);
 #endif
-			var hasher = new xxHash3.StreamingState();
 
 			var bonesArr = bb.Allocate(ref c.Bones, data.RigBones.Length);
 			for (var l = 0; l < bonesArr.Length; ++l)
@@ -264,7 +282,6 @@ public partial class RigDefinitionConversionSystem : SystemBase
 				if (db.Name.Length > 0)
 					bb.AllocateString(ref rbi.Name, ref db.Name);
 #endif
-				hasher.Update(rbi.Hash);
 			}
 
 			if (data.IsHuman)
@@ -298,7 +315,7 @@ public partial class RigDefinitionConversionSystem : SystemBase
 				SetHumanBodyBodyPartForBones(bonesArr, data);
 			}
 
-			c.Hash = new Hash128(hasher.DigestHash128());
+			c.Hash = RigHash;
 			c.RootBoneIndex = data.RootBoneIndex;
 
 			var rv = bb.CreateBlobAssetReference<RigDefinitionBlob>(Allocator.Persistent);

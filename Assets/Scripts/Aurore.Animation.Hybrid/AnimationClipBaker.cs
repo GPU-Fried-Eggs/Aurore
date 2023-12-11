@@ -120,8 +120,8 @@ public partial class AnimationClipBaker
 
 	private static RTP.BoneClip MakeBoneClipCopy(in RTP.BoneClip boneClip)
 	{
-		var clipCopy = boneClip;
-		clipCopy.AnimationCurves = new UnsafeList<RTP.AnimationCurve>(boneClip.AnimationCurves.Length, Allocator.Persistent);
+		var bakedBoneClip = boneClip;
+		bakedBoneClip.AnimationCurves = new UnsafeList<RTP.AnimationCurve>(boneClip.AnimationCurves.Length, Allocator.Persistent);
 		for (var i = 0; i < boneClip.AnimationCurves.Length; ++i)
 		{
 			var inKeyFrame = boneClip.AnimationCurves[i].KeyFrames;
@@ -129,10 +129,10 @@ public partial class AnimationClipBaker
 			for (var j = 0; j < inKeyFrame.Length; ++j) outKeyFrame.Add(inKeyFrame[j]);
 			var animCurve = boneClip.AnimationCurves[i];
 			animCurve.KeyFrames = outKeyFrame;
-			clipCopy.AnimationCurves.Add(animCurve);
+			bakedBoneClip.AnimationCurves.Add(animCurve);
 		}
 
-		return clipCopy;
+		return bakedBoneClip;
 	}
 
 	private static void DebugLogging(RTP.AnimationClip animationClip, bool hasRootCurves)

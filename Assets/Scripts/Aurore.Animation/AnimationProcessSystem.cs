@@ -17,14 +17,14 @@ public partial struct AnimationProcessSystem: ISystem
 {
 	private EntityQuery m_AnimatedObjectQuery;
 	private NativeParallelHashMap<Hash128, BlobAssetReference<BoneRemapTableBlob>> m_RigToSkinnedMeshRemapTables;
-	private NativeList<int2> m_BonePosesOffsetsArr;
+	private NativeList<int2> m_BonePosesOffsets;
 
 	[BurstCompile]
 	public void OnCreate(ref SystemState state)
 	{
 		InitializeRuntimeData(ref state);
 
-		m_BonePosesOffsetsArr = new (Allocator.Persistent);
+		m_BonePosesOffsets = new NativeList<int2>(Allocator.Persistent);
 
 		using var builder = new EntityQueryBuilder(Allocator.Temp)
 			.WithAll<RigDefinitionComponent, AnimationToProcessComponent>();
@@ -37,114 +37,20 @@ public partial struct AnimationProcessSystem: ISystem
 		if (m_RigToSkinnedMeshRemapTables.IsCreated)
 			m_RigToSkinnedMeshRemapTables.Dispose();
 
-		if (m_BonePosesOffsetsArr.IsCreated)
-			m_BonePosesOffsetsArr.Dispose();
+		if (m_BonePosesOffsets.IsCreated)
+			m_BonePosesOffsets.Dispose();
 
-		if (SystemAPI.TryGetSingleton<RuntimeAnimationData>(out var rad))
+		if (SystemAPI.TryGetSingleton<RuntimeAnimationData>(out var runtimeData))
 		{
-			rad.Dispose();
+			runtimeData.Dispose();
 			state.EntityManager.DestroyEntity(SystemAPI.GetSingletonEntity<RuntimeAnimationData>());
 		}
 	}
 
 	private void InitializeRuntimeData(ref SystemState state)
 	{
-		var rad = RuntimeAnimationData.MakeDefault();
-		state.EntityManager.CreateSingleton(rad, "Animation.RuntimeAnimationData");
-	}
-
-	private JobHandle PrepareComputationData(ref SystemState state, NativeArray<int> chunkBaseEntityIndices, ref RuntimeAnimationData runtimeData, NativeList<Entity> entitiesArr, JobHandle dependsOn)
-	{
-		var rigDefinitionTypeHandle = SystemAPI.GetComponentTypeHandle<RigDefinitionComponent>(true);
-		
-		//	Calculate bone offsets per entity
-		var calcBoneOffsetsJob = new CalculateBoneOffsetsJob
-		{
-			ChunkBaseEntityIndices = chunkBaseEntityIndices,
-			BonePosesOffsets = m_BonePosesOffsetsArr.AsArray(),
-			RigDefinitionTypeHandle = rigDefinitionTypeHandle
-		};
-
-		var jh = calcBoneOffsetsJob.ScheduleParallel(m_AnimatedObjectQuery, dependsOn);
-
-		//	Do prefix sum to calculate absolute offsets
-		var prefixSumJob = new DoPrefixSumJob
-		{
-			BoneOffsets = m_BonePosesOffsetsArr.AsArray()
-		};
-
-		prefixSumJob.Schedule(jh).Complete();
-
-		var boneBufferLen = m_BonePosesOffsetsArr[^1];
-		runtimeData.AnimatedBonesBuffer.Resize(boneBufferLen.x, NativeArrayOptions.UninitializedMemory);
-		runtimeData.BoneToEntityArr.Resize(boneBufferLen.x, NativeArrayOptions.UninitializedMemory);
-		runtimeData.EntityToDataOffsetMap.Capacity = math.max(boneBufferLen.x, runtimeData.EntityToDataOffsetMap.Capacity);
-
-		//	Clear flags by two resizes
-		runtimeData.BoneTransformFlagsHolderArr.Resize(0, NativeArrayOptions.UninitializedMemory);
-		runtimeData.BoneTransformFlagsHolderArr.Resize(boneBufferLen.y, NativeArrayOptions.ClearMemory);
-		
-		runtimeData.EntityToDataOffsetMap.Clear();
-
-		//	Fill boneToEntityArr with proper values
-		var boneToEntityArrFillJob = new CalculatePerBoneInfoJob
-		{
-			BonePosesOffsets = m_BonePosesOffsetsArr,
-			BoneToEntityIndices = runtimeData.BoneToEntityArr,
-			ChunkBaseEntityIndices = chunkBaseEntityIndices,
-			RigDefinitionTypeHandle = rigDefinitionTypeHandle,
-			Entities = entitiesArr,
-			EntityToDataOffsetMap = runtimeData.EntityToDataOffsetMap.AsParallelWriter()
-		};
-
-		return boneToEntityArrFillJob.ScheduleParallel(m_AnimatedObjectQuery, default);
-	}
-
-	private JobHandle AnimationCalculation(ref SystemState state, NativeList<Entity> entitiesArr, in RuntimeAnimationData runtimeData, JobHandle dependsOn)
-	{
-		var animationToProcessBufferLookup = SystemAPI.GetBufferLookup<AnimationToProcessComponent>(true);
-		var rootMotionAnimationStateBufferLookupRW = SystemAPI.GetBufferLookup<RootMotionAnimationStateComponent>();
-
-		var rigDefsArr = m_AnimatedObjectQuery.ToComponentDataListAsync<RigDefinitionComponent>(state.WorldUpdateAllocator, out var rigDefsLookupJh);
-		var dataGatherJh = JobHandle.CombineDependencies(rigDefsLookupJh, dependsOn);
-
-		var computeAnimationsJob = new ComputeBoneAnimationJob
-		{
-			AnimationsToProcessLookup = animationToProcessBufferLookup,
-			EntityArr = entitiesArr,
-			RigDefs = rigDefsArr,
-			BoneTransformFlagsArr = runtimeData.BoneTransformFlagsHolderArr,
-			AnimatedBonesBuffer = runtimeData.AnimatedBonesBuffer,
-			BoneToEntityArr = runtimeData.BoneToEntityArr,
-			RootMotionAnimStateBufferLookup = rootMotionAnimationStateBufferLookupRW,
-		};
-
-		return computeAnimationsJob.ScheduleBatch(runtimeData.AnimatedBonesBuffer.Length, 16, dataGatherJh);
-	}
-
-	private JobHandle ProcessUserCurves(ref SystemState state, JobHandle dependsOn)
-	{
-		var userCurveProcessJob = new ProcessUserCurvesJob();
-
-		return userCurveProcessJob.ScheduleParallel(dependsOn);
-	}
-
-	private JobHandle CopyEntityBonesToAnimationTransforms(ref SystemState state, ref RuntimeAnimationData runtimeData, JobHandle dependsOn)
-	{
-		var rigDefinitionLookup = SystemAPI.GetComponentLookup<RigDefinitionComponent>(true);
-		var parentComponentLookup = SystemAPI.GetComponentLookup<Parent>();
-			
-		//	Now take available entity transforms as ref poses overrides
-		var copyEntityBoneTransforms = new CopyEntityBoneTransformsToAnimationBuffer
-		{
-			RigDefComponentLookup = rigDefinitionLookup,
-			BoneTransformFlags = runtimeData.BoneTransformFlagsHolderArr,
-			EntityToDataOffsetMap = runtimeData.EntityToDataOffsetMap,
-			AnimatedBoneTransforms = runtimeData.AnimatedBonesBuffer,
-			ParentComponentLookup = parentComponentLookup,
-		};
-
-		return copyEntityBoneTransforms.ScheduleParallel(dependsOn);
+		var runtimeData = RuntimeAnimationData.MakeDefault();
+		state.EntityManager.CreateSingleton(runtimeData, "Animation.RuntimeAnimationData");
 	}
 
 	[BurstCompile]
@@ -155,76 +61,186 @@ public partial struct AnimationProcessSystem: ISystem
 		
 		ref var runtimeData = ref SystemAPI.GetSingletonRW<RuntimeAnimationData>().ValueRW;
 
-		m_BonePosesOffsetsArr.Resize(entityCount + 1, NativeArrayOptions.UninitializedMemory);
-		var chunkBaseEntityIndices = m_AnimatedObjectQuery.CalculateBaseEntityIndexArrayAsync(state.WorldUpdateAllocator, state.Dependency, out var baseIndexCalcJh);
-		var entitiesArr = m_AnimatedObjectQuery.ToEntityListAsync(state.WorldUpdateAllocator, state.Dependency, out var entityArrJh);
-
-		var combinedJh = JobHandle.CombineDependencies(baseIndexCalcJh, entityArrJh);
+		var initializeJobHandle = InitializeAnimationComputeEngine(ref state, entityCount, ref runtimeData.EntityToDataOffsetMap, out var chunkBaseEntityIndices, out var entitiesArr);
 
 		//	Define array with bone pose offsets for calculated bone poses
-		var calcBoneOffsetsJh = PrepareComputationData(ref state, chunkBaseEntityIndices, ref runtimeData, entitiesArr, combinedJh);
+		var calcBoneOffsetsJobHandle = PrepareComputationData(ref state, chunkBaseEntityIndices, ref runtimeData, entitiesArr, initializeJobHandle);
 
 		//	User curve calculus
-		var userCurveProcessJobHandle = ProcessUserCurves(ref state, calcBoneOffsetsJh);
+		var userCurveProcessJobHandle = ProcessUserCurves(ref state, calcBoneOffsetsJobHandle);
 
 		//	Spawn jobs for animation calculation
 		var computeAnimationJobHandle = AnimationCalculation(ref state, entitiesArr, runtimeData, userCurveProcessJobHandle);
 
 		//	Copy entities poses into animation buffer for non-animated parts
-		var copyEntityTransformsIntoAnimationBufferJh = CopyEntityBonesToAnimationTransforms(ref state, ref runtimeData, computeAnimationJobHandle);
+		var copyTransformsToBufferJobHandle = CopyEntityBonesToAnimationTransforms(ref state, ref runtimeData, computeAnimationJobHandle);
 
-		state.Dependency = copyEntityTransformsIntoAnimationBufferJh;
+		state.Dependency = copyTransformsToBufferJobHandle;
+	}
+
+	private JobHandle InitializeAnimationComputeEngine(ref SystemState state,
+		int entityCount,
+		ref NativeParallelHashMap<Entity, int2> entityToDataOffsetMap,
+		out NativeArray<int> chunkBaseEntityIndices,
+		out NativeList<Entity> entities)
+	{
+		var job = new ClearEntityToDataOffsetHashMap
+		{
+			EntityToDataOffsetMap = entityToDataOffsetMap,
+			EntityCount = entityCount
+		};
+		var jobHandle = job.Schedule(state.Dependency);
+		
+		m_BonePosesOffsets.Resize(entityCount + 1, NativeArrayOptions.UninitializedMemory);
+		chunkBaseEntityIndices = m_AnimatedObjectQuery.CalculateBaseEntityIndexArrayAsync(state.WorldUpdateAllocator, state.Dependency, out var baseIndexCalcJobHandle);
+		entities = m_AnimatedObjectQuery.ToEntityListAsync(state.WorldUpdateAllocator, state.Dependency, out var entitiesJobHandle);
+
+		return JobHandle.CombineDependencies(baseIndexCalcJobHandle, entitiesJobHandle, jobHandle);
+	}
+
+	private JobHandle PrepareComputationData(ref SystemState state,
+		NativeArray<int> chunkBaseEntityIndices,
+		ref RuntimeAnimationData runtimeData,
+		NativeList<Entity> entities,
+		JobHandle dependsOn)
+	{
+		var rigDefinitionTypeHandle = SystemAPI.GetComponentTypeHandle<RigDefinitionComponent>(true);
+		
+		//	Calculate bone offsets per entity
+		var calcBoneOffsetsJob = new CalculateBoneOffsetsJob
+		{
+			ChunkBaseEntityIndices = chunkBaseEntityIndices,
+			BonePosesOffsets = m_BonePosesOffsets,
+			RigDefinitionTypeHandle = rigDefinitionTypeHandle
+		};
+
+		var calcBoneOffsetsJobHandle = calcBoneOffsetsJob.ScheduleParallel(m_AnimatedObjectQuery, dependsOn);
+
+		//	Do prefix sum to calculate absolute offsets
+		var prefixSumJob = new DoPrefixSumJob
+		{
+			BoneOffsets = m_BonePosesOffsets
+		};
+
+		var prefixSumJobHandle = prefixSumJob.Schedule(calcBoneOffsetsJobHandle);
+
+		//	Resize data buffers depending on current workload
+		var resizeDataBuffersJob = new ResizeDataBuffersJob
+		{
+			BoneOffsets = m_BonePosesOffsets,
+			RuntimeData = runtimeData
+		};
+
+		var resizeDataBuffersJobHandle = resizeDataBuffersJob.Schedule(prefixSumJobHandle);
+
+		//	Fill boneToEntityArr with proper values
+		var boneToEntityArrFillJob = new CalculatePerBoneInfoJob
+		{
+			BonePosesOffsets = m_BonePosesOffsets,
+			BoneToEntityIndices = runtimeData.BoneToEntityBuffer,
+			ChunkBaseEntityIndices = chunkBaseEntityIndices,
+			RigDefinitionTypeHandle = rigDefinitionTypeHandle,
+			Entities = entities,
+			EntityToDataOffsetMap = runtimeData.EntityToDataOffsetMap.AsParallelWriter()
+		};
+
+		return boneToEntityArrFillJob.ScheduleParallel(m_AnimatedObjectQuery, resizeDataBuffersJobHandle);
+	}
+
+	private JobHandle AnimationCalculation(ref SystemState state,
+		NativeList<Entity> entities,
+		in RuntimeAnimationData runtimeData,
+		JobHandle dependsOn)
+	{
+		var animationToProcessBufferLookup = SystemAPI.GetBufferLookup<AnimationToProcessComponent>(true);
+		var rootMotionAnimationStateBufferLookupRW = SystemAPI.GetBufferLookup<RootMotionAnimationStateComponent>();
+
+		var rigDefsList = m_AnimatedObjectQuery.ToComponentDataListAsync<RigDefinitionComponent>(state.WorldUpdateAllocator, out var rigDefsLookupJobHandle);
+		var dataGatherJobHandle = JobHandle.CombineDependencies(rigDefsLookupJobHandle, dependsOn);
+
+		var computeAnimationsJob = new ComputeBoneAnimationJob
+		{
+			AnimationsToProcessLookup = animationToProcessBufferLookup,
+			Entities = entities,
+			RigDefs = rigDefsList,
+			BoneTransformFlagsArr = runtimeData.BoneTransformFlagsBuffer,
+			AnimatedBonesBuffer = runtimeData.AnimatedBonesBuffer,
+			BoneToEntityArr = runtimeData.BoneToEntityBuffer,
+			RootMotionAnimStateBufferLookup = rootMotionAnimationStateBufferLookupRW,
+		};
+
+		return computeAnimationsJob.Schedule(runtimeData.AnimatedBonesBuffer, 16, dataGatherJobHandle);
+	}
+
+	private JobHandle ProcessUserCurves(ref SystemState state, JobHandle dependsOn)
+	{
+		var userCurveProcessJob = new ProcessUserCurvesJob();
+
+		return userCurveProcessJob.ScheduleParallel(dependsOn);
+	}
+
+	private JobHandle CopyEntityBonesToAnimationTransforms(ref SystemState state,
+		ref RuntimeAnimationData runtimeData,
+		JobHandle dependsOn)
+	{
+		var rigDefinitionLookup = SystemAPI.GetComponentLookup<RigDefinitionComponent>(true);
+		var parentComponentLookup = SystemAPI.GetComponentLookup<Parent>();
+			
+		//	Now take available entity transforms as ref poses overrides
+		var copyEntityBoneTransforms = new CopyEntityBoneTransformsToAnimationBuffer
+		{
+			RigDefComponentLookup = rigDefinitionLookup,
+			BoneTransformFlags = runtimeData.BoneTransformFlagsBuffer,
+			EntityToDataOffsetMap = runtimeData.EntityToDataOffsetMap,
+			AnimatedBoneTransforms = runtimeData.AnimatedBonesBuffer,
+			ParentComponentLookup = parentComponentLookup,
+		};
+
+		return copyEntityBoneTransforms.ScheduleParallel(dependsOn);
 	}
 
 	[BurstCompile]
-	public struct ComputeBoneAnimationJob: IJobParallelForBatch
+	public struct ComputeBoneAnimationJob: IJobParallelForDefer
 	{
-		[WriteOnly, NativeDisableContainerSafetyRestriction]
+		[NativeDisableParallelForRestriction]
 		public NativeList<BoneTransform> AnimatedBonesBuffer;
-		[WriteOnly, NativeDisableContainerSafetyRestriction]
+		[NativeDisableParallelForRestriction]
 		public NativeList<ulong> BoneTransformFlagsArr;
 		[ReadOnly] public NativeList<int3> BoneToEntityArr;
 		[ReadOnly] public BufferLookup<AnimationToProcessComponent> AnimationsToProcessLookup;
 		[ReadOnly] public NativeList<RigDefinitionComponent> RigDefs;
-		[ReadOnly] public NativeList<Entity> EntityArr;
+		[ReadOnly] public NativeList<Entity> Entities;
 		
 		[NativeDisableParallelForRestriction]
 		public BufferLookup<RootMotionAnimationStateComponent> RootMotionAnimStateBufferLookup;
-	
-		public void Execute(int startIndex, int count)
-		{
-			for (int i = startIndex; i < startIndex + count; ++i)
-				ExecuteSingle(i);
-		}
 
-		private void ExecuteSingle(int globalBoneIndex)
+		public void Execute(int globalBoneIndex)
 		{
 			var boneToEntityIndex = BoneToEntityArr[globalBoneIndex];
 			var (rigBoneIndex, entityIndex) = (boneToEntityIndex.y, boneToEntityIndex.x);
-			var e = EntityArr[entityIndex];
+			var entity = Entities[entityIndex];
 	
 			var rigDef = RigDefs[entityIndex];
 			var rigBlobAsset = rigDef.RigBlob;
-			ref var rb = ref rigBlobAsset.Value.Bones[rigBoneIndex];
-			var animationsToProcess = AnimationsToProcessLookup[e];
+			ref var rigInfo = ref rigBlobAsset.Value.Bones[rigBoneIndex];
+			var animationsToProcess = AnimationsToProcessLookup[entity];
 	
 			//	Early exit if no animations
-			if (animationsToProcess.IsEmpty)
-				return;
+			if (animationsToProcess.IsEmpty) return;
 	
 			var transformFlags = RuntimeAnimationData.GetAnimationTransformFlagsRW(BoneToEntityArr, BoneTransformFlagsArr, globalBoneIndex, rigBlobAsset.Value.Bones.Length);
 			GetHumanRotationDataForSkeletonBone(out var humanBoneInfo, ref rigBlobAsset.Value.HumanData, rigBoneIndex);
 	
 			Span<float> layerWeights = stackalloc float[32];
-			var refPosWeight = CalculateFinalLayerWeights(layerWeights, animationsToProcess, rb.Hash, rb.HumanBodyPart);
+			var refPosWeight = CalculateFinalLayerWeights(layerWeights, animationsToProcess, rigInfo.Hash, rigInfo.HumanBodyPart);
 			float3 totalWeights = refPosWeight;
 	
-			var blendedBonePose = BoneTransform.TransformScale(rb.RefPose, refPosWeight);
+			var blendedBonePose = BoneTransform.TransformScale(rigInfo.RefPose, refPosWeight);
 	
 			var rootMotionDeltaBone = rigDef.ApplyRootMotion && rigBoneIndex == 0;
-			PrepareRootMotionStateBuffers(e, animationsToProcess, out var curRootMotionState, out var newRootMotionState, rootMotionDeltaBone);
+			PrepareRootMotionStateBuffers(entity, animationsToProcess, out var curRootMotionState, out var newRootMotionState, rootMotionDeltaBone);
 	
-			for (int i = 0; i < animationsToProcess.Length; ++i)
+			for (var i = 0; i < animationsToProcess.Length; ++i)
 			{
 				var atp = animationsToProcess[i];
 	
@@ -233,7 +249,7 @@ public partial struct AnimationProcessSystem: ISystem
 				var layerWeight = layerWeights[atp.LayerIndex];
 				if (layerWeight == 0) continue;
 	
-				var boneNameHash = rb.Hash;
+				var boneNameHash = rigInfo.Hash;
 				if (rigDef.ApplyRootMotion && (rigBlobAsset.Value.RootBoneIndex == rigBoneIndex || rigBoneIndex == 0))
 					ModifyBoneHashForRootMotion(ref boneNameHash);
 				
@@ -249,7 +265,7 @@ public partial struct AnimationProcessSystem: ISystem
 					var (bonePose, flags) = SampleAnimation(ref boneAnimation, animTime, atp, calculateLoopPose, additiveReferencePoseTime, humanBoneInfo);
 					SetTransformFlags(flags, transformFlags, rigBoneIndex);
 	
-					float3 modWeight = flags * atp.Weight * layerWeight;
+					var modWeight = flags * atp.Weight * layerWeight;
 					totalWeights += modWeight;
 	
 					if (rootMotionDeltaBone)
@@ -260,13 +276,13 @@ public partial struct AnimationProcessSystem: ISystem
 			}
 	
 			//	Reference pose for root motion delta should be identity
-			var boneRefPose = Hint.Unlikely(rootMotionDeltaBone) ? BoneTransform.Identity : rb.RefPose;
+			var boneRefPose = Hint.Unlikely(rootMotionDeltaBone) ? BoneTransform.Identity : rigInfo.RefPose;
 			
 			BoneTransformMakePretty(ref blendedBonePose, boneRefPose, totalWeights);
 			AnimatedBonesBuffer[globalBoneIndex] = blendedBonePose;
 	
 			if (rootMotionDeltaBone)
-				SetRootMotionStateToComponentBuffer(newRootMotionState, e);
+				SetRootMotionStateToComponentBuffer(newRootMotionState, entity);
 		}
 	
 		public static void ModifyBoneHashForRootMotion(ref Hash128 h)
@@ -284,40 +300,34 @@ public partial struct AnimationProcessSystem: ISystem
 			return candidateBoneHash == boneHash ? queryIndex : -1;
 		}
 
-		private void PrepareRootMotionStateBuffers
-		(
-			Entity e,
+		private void PrepareRootMotionStateBuffers(Entity entity,
 			in DynamicBuffer<AnimationToProcessComponent> atps,
 			out NativeArray<RootMotionAnimationStateComponent> curRootMotionState,
 			out NativeArray<RootMotionAnimationStateComponent> newRootMotionState,
-			bool isRootMotionBone
-		)
+			bool isRootMotionBone)
 		{
 			curRootMotionState = default;
 			newRootMotionState = default;
 	
 			if (Hint.Likely(!isRootMotionBone)) return;
 	
-			if (RootMotionAnimStateBufferLookup.HasBuffer(e))
-				curRootMotionState = RootMotionAnimStateBufferLookup[e].AsNativeArray();
+			if (RootMotionAnimStateBufferLookup.HasBuffer(entity))
+				curRootMotionState = RootMotionAnimStateBufferLookup[entity].AsNativeArray();
 	
 			newRootMotionState = new NativeArray<RootMotionAnimationStateComponent>(atps.Length, Allocator.Temp, NativeArrayOptions.UninitializedMemory);
 		}
 
-		private void ProcessRootMotionDeltas
-		(
-			ref BoneTransform bonePose,
+		private void ProcessRootMotionDeltas(ref BoneTransform bonePose,
 			ref BoneClipBlob boneAnimation,
 			in AnimationToProcessComponent atp,
 			int animationIndex,
 			in NativeArray<RootMotionAnimationStateComponent> curRootMotionState,
-			NativeArray<RootMotionAnimationStateComponent> newRootMotionState
-		)
+			NativeArray<RootMotionAnimationStateComponent> newRootMotionState)
 		{
 			//	Special care for root motion animation loops
 			HandleRootMotionLoops(ref bonePose, ref boneAnimation, atp);
 		
-			BoneTransform rootMotionPrevPose = bonePose;
+			var rootMotionPrevPose = bonePose;
 	
 			// Find animation history in history buffer
 			var historyBufferIndex = 0;
@@ -426,7 +436,7 @@ public partial struct AnimationProcessSystem: ISystem
 	
 			var deltaPose = BoneTransform.Multiply(endFramePose, BoneTransform.Inverse(startFramePose));
 	
-			BoneTransform accumCyclePose = BoneTransform.Identity;
+			var accumCyclePose = BoneTransform.Identity;
 			for (var c = numLoopCycles; c > 0; c >>= 1)
 			{
 				if ((c & 1) == 1)
@@ -463,7 +473,7 @@ public partial struct AnimationProcessSystem: ISystem
 			var w = 1.0f;
 			var refPoseWeight = 1.0f;
 	
-			for (int i = atp.Length - 1; i >= 0; --i)
+			for (var i = atp.Length - 1; i >= 0; --i)
 			{
 				var a = atp[i];
 				if (a.LayerIndex == layerIndex) continue;
@@ -486,54 +496,50 @@ public partial struct AnimationProcessSystem: ISystem
 			bt.Rotation = math.mul(math.mul(hrd.PreRot, bt.Rotation), hrd.PostRot);
 		}
 
-		private void BoneTransformMakePretty(ref BoneTransform bt, BoneTransform refPose, float3 weights)
+		private void BoneTransformMakePretty(ref BoneTransform bonePose, BoneTransform refPose, float3 weights)
 		{
 			var complWeights = math.saturate(new float3(1) - weights);
-			bt.Position += refPose.Position * complWeights.x;
-			var shortestRefRot = MathUtils.ShortestRotation(bt.Rotation.value, refPose.Rotation.value);
-			bt.Rotation.value += shortestRefRot.value * complWeights.y;
-			bt.Scale += refPose.Scale * complWeights.z;
+			bonePose.Position += refPose.Position * complWeights.x;
+			var shortestRefRot = MathUtils.ShortestRotation(bonePose.Rotation.value, refPose.Rotation.value);
+			bonePose.Rotation.value += shortestRefRot.value * complWeights.y;
+			bonePose.Scale += refPose.Scale * complWeights.z;
 	
-			bt.Rotation = math.normalize(bt.Rotation);
+			bonePose.Rotation = math.normalize(bonePose.Rotation);
 		}
 	
-		public static bool IsBoneInAvatarMask(in Hash128 boneHash, AvatarMaskBodyPart humanAvatarMaskBodyPart, ExternalBlobPtr<AvatarMaskBlob> am)
+		public static bool IsBoneInAvatarMask(in Hash128 boneHash, AvatarMaskBodyPart humanAvatarMaskBodyPart, ExternalBlobPtr<AvatarMaskBlob> avatarMaskPtr)
 		{
 			// If no avatar mask defined or bone hash is all zeroes assume that bone included
-			if (!am.IsCreated || !math.any(boneHash.Value))
+			if (!avatarMaskPtr.IsCreated || !math.any(boneHash.Value))
 				return true;
 	
-			return (int)humanAvatarMaskBodyPart >= 0 ?
-				IsBoneInHumanAvatarMask(humanAvatarMaskBodyPart, am) :
-				IsBoneInGenericAvatarMask(boneHash, am);
+			return (int)humanAvatarMaskBodyPart >= 0
+				? IsBoneInHumanAvatarMask(humanAvatarMaskBodyPart, avatarMaskPtr)
+				: IsBoneInGenericAvatarMask(boneHash, avatarMaskPtr);
 		}
 	
-		public static bool IsBoneInHumanAvatarMask(AvatarMaskBodyPart humanBoneAvatarMaskIndex, ExternalBlobPtr<AvatarMaskBlob> am)
+		public static bool IsBoneInHumanAvatarMask(AvatarMaskBodyPart humanBoneAvatarMaskIndex, ExternalBlobPtr<AvatarMaskBlob> avatarMaskPtr)
 		{
-			var rv = (am.Value.HumanBodyPartsAvatarMask & 1 << (int)humanBoneAvatarMaskIndex) != 0;
-			return rv;
+			return (avatarMaskPtr.Value.HumanBodyPartsAvatarMask & 1 << (int)humanBoneAvatarMaskIndex) != 0;
 		}
 	
-		public static bool IsBoneInGenericAvatarMask(in Hash128 boneHash, ExternalBlobPtr<AvatarMaskBlob> am)
+		public static bool IsBoneInGenericAvatarMask(in Hash128 boneHash, ExternalBlobPtr<AvatarMaskBlob> avatarMaskPtr)
 		{
-			for (int i = 0; i < am.Value.IncludedBoneHashes.Length; ++i)
+			for (var i = 0; i < avatarMaskPtr.Value.IncludedBoneHashes.Length; ++i)
 			{
-				var avatarMaskBoneHash = am.Value.IncludedBoneHashes[i];
-				if (avatarMaskBoneHash == boneHash)
-					return true;
+				var avatarMaskBoneHash = avatarMaskPtr.Value.IncludedBoneHashes[i];
+				if (avatarMaskBoneHash == boneHash) return true;
 			}
+
 			return false;
 		}
 
-		private (BoneTransform, float3) SampleAnimation
-		(
-			ref BoneClipBlob bcb,
+		private (BoneTransform, float3) SampleAnimation(ref BoneClipBlob bcb,
 			float2 animTime,
 			in AnimationToProcessComponent atp,
 			bool calculateLoopPose, 
 			float additiveReferencePoseTime,
-			in HumanRotationData hrd = default
-		)
+			in HumanRotationData hrd = default)
 		{
 			var time = animTime.x;
 			var timeNrm = animTime.y;
@@ -555,69 +561,69 @@ public partial struct AnimationProcessSystem: ISystem
 			return (bonePose, flags);
 		}
 
-		private void MakeAdditiveAnimation(ref BoneTransform rv, in BoneTransform zeroFramePose)
+		private void MakeAdditiveAnimation(ref BoneTransform bonePose, in BoneTransform zeroFramePose)
 		{
 			//	If additive layer make difference between reference pose and current animated pose
-			rv.Position = rv.Position - zeroFramePose.Position;
+			bonePose.Position = bonePose.Position - zeroFramePose.Position;
 			var conjugateZfRot = math.normalizesafe(math.conjugate(zeroFramePose.Rotation));
-			conjugateZfRot = MathUtils.ShortestRotation(rv.Rotation, conjugateZfRot);
-			rv.Rotation = math.mul(math.normalize(rv.Rotation), conjugateZfRot);
-			rv.Scale = rv.Scale / zeroFramePose.Scale;
+			conjugateZfRot = MathUtils.ShortestRotation(bonePose.Rotation, conjugateZfRot);
+			bonePose.Rotation = math.mul(math.normalize(bonePose.Rotation), conjugateZfRot);
+			bonePose.Scale = bonePose.Scale / zeroFramePose.Scale;
 		}
 
 		private (BoneTransform, float3) ProcessAnimationCurves(ref BoneClipBlob bcb, HumanRotationData hrd, float time)
 		{
-			var rv = BoneTransform.Identity;
+			var boneTransform = BoneTransform.Identity;
 	
-			bool eulerToQuaternion = false;
+			var eulerToQuaternion = false;
 	
 			float3 flags = 0;
-			for (int i = 0; i < bcb.AnimationCurves.Length; ++i)
+			for (var i = 0; i < bcb.AnimationCurves.Length; ++i)
 			{
 				ref var ac = ref bcb.AnimationCurves[i];
 				var interpolatedCurveValue = BlobCurve.SampleAnimationCurve(ref ac.KeyFrames, time);
 	
 				switch (ac.BindingType)
 				{
-				case BindingType.Translation:
-					rv.Position[ac.ChannelIndex] = interpolatedCurveValue;
-					flags.x = 1;
-					break;
-				case BindingType.Quaternion:
-					rv.Rotation.value[ac.ChannelIndex] = interpolatedCurveValue;
-					flags.y = 1;
-					break;
-				case BindingType.EulerAngles:
-					eulerToQuaternion = true;
-					rv.Rotation.value[ac.ChannelIndex] = interpolatedCurveValue;
-					flags.y = 1;
-					break;
-				case BindingType.HumanMuscle:
-					rv.Rotation.value[ac.ChannelIndex] = interpolatedCurveValue;
-					flags.y = 1;
-					break;
-				case BindingType.Scale:
-					rv.Scale[ac.ChannelIndex] = interpolatedCurveValue;
-					flags.z = 1;
-					break;
-				default:
-					Debug.Assert(false, "Unknown binding type!");
-					break;
+					case BindingType.Translation:
+						boneTransform.Position[ac.ChannelIndex] = interpolatedCurveValue;
+						flags.x = 1;
+						break;
+					case BindingType.Quaternion:
+						boneTransform.Rotation.value[ac.ChannelIndex] = interpolatedCurveValue;
+						flags.y = 1;
+						break;
+					case BindingType.EulerAngles:
+						eulerToQuaternion = true;
+						boneTransform.Rotation.value[ac.ChannelIndex] = interpolatedCurveValue;
+						flags.y = 1;
+						break;
+					case BindingType.HumanMuscle:
+						boneTransform.Rotation.value[ac.ChannelIndex] = interpolatedCurveValue;
+						flags.y = 1;
+						break;
+					case BindingType.Scale:
+						boneTransform.Scale[ac.ChannelIndex] = interpolatedCurveValue;
+						flags.z = 1;
+						break;
+					default:
+						Debug.Assert(false, "Unknown binding type!");
+						break;
 				}
 			}
 	
 			//	If we have got Euler angles instead of quaternion, convert them here
 			if (eulerToQuaternion)
 			{
-				rv.Rotation = quaternion.Euler(math.radians(rv.Rotation.value.xyz));
+				boneTransform.Rotation = quaternion.Euler(math.radians(boneTransform.Rotation.value.xyz));
 			}
 	
 			if (bcb.IsHumanMuscleClip)
 			{
-				MuscleValuesToQuaternion(hrd, ref rv);
+				MuscleValuesToQuaternion(hrd, ref boneTransform);
 			}
 	
-			return (rv, flags);
+			return (boneTransform, flags);
 		}
 	}
 	
@@ -635,13 +641,13 @@ public partial struct AnimationProcessSystem: ISystem
 	
 			ComputeBoneAnimationJob.CalculateFinalLayerWeights(layerWeights, animationsToProcess, new Hash128(), (AvatarMaskBodyPart)(-1));
 	
-			for (int l = 0; l < animationsToProcess.Length; ++l)
+			for (var l = 0; l < animationsToProcess.Length; ++l)
 			{
 				var atp = animationsToProcess[l];
 				var animTime = ComputeBoneAnimationJob.NormalizeAnimationTime(atp.Time, ref atp.Animation.Value);
 				var layerWeight = layerWeights[atp.LayerIndex];
 				ref var curves = ref atp.Animation.Value.Curves;
-				for (int k = 0; k < curves.Length; ++k)
+				for (var k = 0; k < curves.Length; ++k)
 				{
 					ref var c = ref curves[k];
 					var paramHash = c.Hash.Value.x;
@@ -658,7 +664,7 @@ public partial struct AnimationProcessSystem: ISystem
 				}
 			}
 	
-			for (int l = 0; l < apa.ParametersCount(); ++l)
+			for (var l = 0; l < apa.ParametersCount(); ++l)
 			{
 				if (isSetByCurve.GetBits(l) == 0) continue;
 				apa.SetParameterValueByIndex(l, finalParamValues[l]);
@@ -696,13 +702,13 @@ public partial struct AnimationProcessSystem: ISystem
 		public NativeArray<int> ChunkBaseEntityIndices;
 		
 		[WriteOnly, NativeDisableContainerSafetyRestriction]
-		public NativeArray<int2> BonePosesOffsets;
+		public NativeList<int2> BonePosesOffsets;
 	
 		public void Execute(in ArchetypeChunk chunk, int unfilteredChunkIndex, bool useEnabledMask, in v128 chunkEnabledMask)
 		{
 			var rigDefAccessor = chunk.GetNativeArray(ref RigDefinitionTypeHandle);
-			int baseEntityIndex = ChunkBaseEntityIndices[unfilteredChunkIndex];
-			int validEntitiesInChunk = 0;
+			var baseEntityIndex = ChunkBaseEntityIndices[unfilteredChunkIndex];
+			var validEntitiesInChunk = 0;
 	
 			var cee = new ChunkEntityEnumerator(useEnabledMask, chunkEnabledMask, chunk.Count);
 			BonePosesOffsets[0] = 0;
@@ -711,7 +717,7 @@ public partial struct AnimationProcessSystem: ISystem
 			{
 				var rigDef = rigDefAccessor[i];
 	
-				int entityInQueryIndex = baseEntityIndex + validEntitiesInChunk;
+				var entityInQueryIndex = baseEntityIndex + validEntitiesInChunk;
 	            ++validEntitiesInChunk;
 	
 				var boneCount = rigDef.RigBlob.Value.Bones.Length;
@@ -747,15 +753,15 @@ public partial struct AnimationProcessSystem: ISystem
 		public void Execute(in ArchetypeChunk chunk, int unfilteredChunkIndex, bool useEnabledMask, in v128 chunkEnabledMask)
 		{
 			var rigDefAccessor = chunk.GetNativeArray(ref RigDefinitionTypeHandle);
-			int baseEntityIndex = ChunkBaseEntityIndices[unfilteredChunkIndex];
-			int validEntitiesInChunk = 0;
+			var baseEntityIndex = ChunkBaseEntityIndices[unfilteredChunkIndex];
+			var validEntitiesInChunk = 0;
 	
 			var cee = new ChunkEntityEnumerator(useEnabledMask, chunkEnabledMask, chunk.Count);
 	
 			while (cee.NextEntityIndex(out var i))
 			{
 				var rigDef = rigDefAccessor[i];
-				int entityInQueryIndex = baseEntityIndex + validEntitiesInChunk;
+				var entityInQueryIndex = baseEntityIndex + validEntitiesInChunk;
 	            ++validEntitiesInChunk;
 				var offset = BonePosesOffsets[entityInQueryIndex];
 	
@@ -772,12 +778,12 @@ public partial struct AnimationProcessSystem: ISystem
 	[BurstCompile]
 	private struct DoPrefixSumJob: IJob
 	{
-		public NativeArray<int2> BoneOffsets;
+		public NativeList<int2> BoneOffsets;
 	
 		public void Execute()
 		{
 			var sum = new int2(0);
-			for (int i = 0; i < BoneOffsets.Length; ++i)
+			for (var i = 0; i < BoneOffsets.Length; ++i)
 			{
 				var v = BoneOffsets[i];
 				sum += v;
@@ -785,7 +791,38 @@ public partial struct AnimationProcessSystem: ISystem
 			}
 		}
 	}
-	
+
+	[BurstCompile]
+	private struct ResizeDataBuffersJob: IJob
+	{
+		[ReadOnly] public NativeList<int2> BoneOffsets;
+		public RuntimeAnimationData RuntimeData;
+
+		public void Execute()
+		{
+			var boneBufferLen = BoneOffsets[^1];
+			RuntimeData.AnimatedBonesBuffer.Resize(boneBufferLen.x, NativeArrayOptions.UninitializedMemory);
+			RuntimeData.BoneToEntityBuffer.Resize(boneBufferLen.x, NativeArrayOptions.UninitializedMemory);
+
+			//	Clear flags by two resizes
+			RuntimeData.BoneTransformFlagsBuffer.Resize(0, NativeArrayOptions.UninitializedMemory);
+			RuntimeData.BoneTransformFlagsBuffer.Resize(boneBufferLen.y, NativeArrayOptions.ClearMemory);
+		}
+	}
+
+	[BurstCompile]
+	private struct ClearEntityToDataOffsetHashMap: IJob
+	{
+		public NativeParallelHashMap<Entity, int2> EntityToDataOffsetMap;
+		public int EntityCount;
+
+		public void Execute()
+		{
+			EntityToDataOffsetMap.Clear();
+			EntityToDataOffsetMap.Capacity = math.max(EntityCount, EntityToDataOffsetMap.Capacity);
+		}
+	}
+
 	[BurstCompile]
 	private partial struct CopyEntityBoneTransformsToAnimationBuffer: IJobEntity
 {

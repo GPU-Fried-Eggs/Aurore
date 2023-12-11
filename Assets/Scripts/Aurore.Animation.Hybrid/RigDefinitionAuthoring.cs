@@ -63,7 +63,7 @@ public class RigDefinitionAuthoring: MonoBehaviour
 				Hash = processedRig.GetHashCode(),
 				ApplyRootMotion = animator.applyRootMotion,
 #if AURORE_DEBUG
-				Name = a.name
+				Name = animator.name
 #endif
 			};
 	
@@ -71,15 +71,16 @@ public class RigDefinitionAuthoring: MonoBehaviour
 			AddComponent(entity, component);
 		}
 
-		private InternalSkeletonBone CreateSkeletonBoneFromTransform(Transform t, string parentName)
+		private InternalSkeletonBone CreateSkeletonBoneFromTransform(Transform transform, string parentName)
 		{
-			var bone = new InternalSkeletonBone();
-			bone.Name = t.name;
-			bone.Position = t.localPosition;
-			bone.Rotation = t.localRotation;
-			bone.Scale = t.localScale;
-			bone.ParentName = parentName;
-			return bone;
+			return new InternalSkeletonBone
+			{
+				Name = transform.name,
+				Position = transform.localPosition,
+				Rotation = transform.localRotation,
+				Scale = transform.localScale,
+				ParentName = parentName
+			};
 		}
 
 		private void TransformHierarchyWalk(Transform parent, List<InternalSkeletonBone> sb)

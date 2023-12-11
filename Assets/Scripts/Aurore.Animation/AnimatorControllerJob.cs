@@ -12,7 +12,7 @@ public partial struct AnimatorControllerJob
 	[BurstCompile]
 	public struct StateMachineProcessJob: IJobChunk
 	{
-		public float DT;
+		public float DeltaTime;
 		public int FrameIndex;
 		public BufferTypeHandle<AnimatorControllerLayerComponent> ControllerLayersBufferHandle;
 		public BufferTypeHandle<AnimatorControllerParameterComponent> ControllerParametersBufferHandle;
@@ -31,116 +31,115 @@ public partial struct AnimatorControllerJob
 			while (cee.NextEntityIndex(out var i))
 			{
 				var layers = layerBuffers[i];
-				var parameters = parameterBuffers.Length > 0 ? parameterBuffers[i] : default;
+				var parameters = parameterBuffers.Length > 0 ? parameterBuffers[i].AsNativeArray() : default;
 
-				ExecuteSingle(ref layers, ref parameters);
+				ExecuteSingle(layers, parameters);
 			}
 		}
 
-		private void ExecuteSingle(ref DynamicBuffer<AnimatorControllerLayerComponent> aclc, ref DynamicBuffer<AnimatorControllerParameterComponent> acpc)
+		private void ExecuteSingle(DynamicBuffer<AnimatorControllerLayerComponent> layerBuffer, NativeArray<AnimatorControllerParameterComponent> runtimeParams)
 		{
-			for (int i = 0; i < aclc.Length; ++i)
+			for (var i = 0; i < layerBuffer.Length; ++i)
 			{
-				ref var acc = ref aclc.ElementAt(i);
+				ref var layer = ref layerBuffer.ElementAt(i);
 #if AURORE_DEBUG
 				//	Make state snapshot to compare it later and log differences
-				var controllerDataPreSnapshot = acc;
+				var controllerDataPreSnapshot = layer;
 #endif
 
-				ProcessLayer(ref acc.Controller.Value, acc.LayerIndex, ref acpc, DT, ref acc);
+				ProcessLayer(ref layer.Controller.Value, layer.LayerIndex, runtimeParams, DeltaTime, ref layer);
 
 #if AURORE_DEBUG
-				DoDebugLogging(controllerDataPreSnapshot, acc, FrameIndex);
+				DoDebugLogging(controllerDataPreSnapshot, layer, FrameIndex);
 #endif
 			}
 		}
 
 		private RuntimeAnimatorData.StateRuntimeData InitRuntimeStateData(int stateID)
 		{
-			var rv = new RuntimeAnimatorData.StateRuntimeData();
-			rv.Id = stateID;
-			rv.NormalizedDuration = 0;
-			return rv;
+			return new RuntimeAnimatorData.StateRuntimeData
+			{
+				Id = stateID,
+				NormalizedDuration = 0
+			};
 		}
 
-		private void ExitTransition(ref AnimatorControllerLayerComponent acc, ref LayerBlob layer)
+		private void ExitTransition(ref AnimatorControllerLayerComponent layer)
 		{
-			if (acc.Rtd.ActiveTransition.Id >= 0)
-			{
-				ref var t = ref layer.States[acc.Rtd.SrcState.Id].Transitions[acc.Rtd.ActiveTransition.Id];
-				ref var dstState = ref layer.States[acc.Rtd.DstState.Id];
+			if (layer.Rtd.ActiveTransition.Id < 0) return;
 
-				if (CheckTransitionExitConditions(acc.Rtd.ActiveTransition))
-				{
-					acc.Rtd.SrcState = acc.Rtd.DstState;
-					acc.Rtd.DstState = acc.Rtd.ActiveTransition = RuntimeAnimatorData.StateRuntimeData.MakeDefault();
-				}
+			if (CheckTransitionExitConditions(layer.Rtd.ActiveTransition))
+			{
+				layer.Rtd.SrcState = layer.Rtd.DstState;
+				layer.Rtd.DstState = layer.Rtd.ActiveTransition = RuntimeAnimatorData.StateRuntimeData.MakeDefault();
 			}
 		}
 
-		private void EnterTransition(ref AnimatorControllerLayerComponent acc,
-			ref LayerBlob layer,
-			ref DynamicBuffer<AnimatorControllerParameterComponent> runtimeParams,
+		private void EnterTransition(ref AnimatorControllerLayerComponent layer,
+			ref LayerBlob layerBlob,
+			NativeArray<AnimatorControllerParameterComponent> runtimeParams,
 			float srcStateDurationFrameDelta,
 			float curStateDuration)
 		{
-			if (acc.Rtd.ActiveTransition.Id >= 0)
+			if (layer.Rtd.ActiveTransition.Id >= 0)
 				return;
 
-			ref var currentState = ref layer.States[acc.Rtd.SrcState.Id];
+			ref var currentState = ref layerBlob.States[layer.Rtd.SrcState.Id];
 
-			for (int i = 0; i < currentState.Transitions.Length; ++i)
+			for (var i = 0; i < currentState.Transitions.Length; ++i)
 			{
-				ref var t = ref currentState.Transitions[i];
-				var b = CheckTransitionEnterExitTimeCondition(ref t, acc.Rtd.SrcState, srcStateDurationFrameDelta) &&
-						CheckTransitionEnterConditions(ref t, ref runtimeParams);
-				if (b)
+				ref var transitionBlob = ref currentState.Transitions[i];
+				var condition = CheckTransitionEnterExitTimeCondition(ref transitionBlob, layer.Rtd.SrcState, srcStateDurationFrameDelta) &&
+				                CheckTransitionEnterConditions(ref transitionBlob, runtimeParams);
+				if (condition)
 				{
-					var timeShouldBeInTransition = GetTimeInSecondsShouldBeInTransition(ref t, acc.Rtd.SrcState, curStateDuration, srcStateDurationFrameDelta);
-					acc.Rtd.ActiveTransition.Id	= i;
-					acc.Rtd.ActiveTransition.NormalizedDuration = timeShouldBeInTransition / CalculateTransitionDuration(ref t, curStateDuration);
-					var dstStateDur = CalculateStateDuration(ref layer.States[t.TargetStateId], runtimeParams) + t.Offset;
-					acc.Rtd.DstState = InitRuntimeStateData(t.TargetStateId);
-					acc.Rtd.DstState.NormalizedDuration += timeShouldBeInTransition / dstStateDur;
+					var timeShouldBeInTransition = GetTimeInSecondsShouldBeInTransition(ref transitionBlob, layer.Rtd.SrcState, curStateDuration, srcStateDurationFrameDelta);
+					layer.Rtd.ActiveTransition.Id	= i;
+					layer.Rtd.ActiveTransition.NormalizedDuration = timeShouldBeInTransition / CalculateTransitionDuration(ref transitionBlob, curStateDuration);
+					var dstStateDur = CalculateStateDuration(ref layerBlob.States[transitionBlob.TargetStateId], runtimeParams);
+					layer.Rtd.DstState = InitRuntimeStateData(transitionBlob.TargetStateId);
+					layer.Rtd.DstState.NormalizedDuration += timeShouldBeInTransition / dstStateDur + transitionBlob.Offset;
 					break;
 				}
 			}
 		}
 
-		private void ProcessLayer(ref ControllerBlob c, int layerIndex, ref DynamicBuffer<AnimatorControllerParameterComponent> runtimeParams, float dt, ref AnimatorControllerLayerComponent acc)
+		private void ProcessLayer(ref ControllerBlob controllerBlob, int layerIndex, NativeArray<AnimatorControllerParameterComponent> runtimeParams, float deltaTime, ref AnimatorControllerLayerComponent runtimeLayer)
 		{
-			ref var layer = ref c.Layers[layerIndex];
+			ref var layer = ref controllerBlob.Layers[layerIndex];
 
-			var currentStateID = acc.Rtd.SrcState.Id;
+			var currentStateID = runtimeLayer.Rtd.SrcState.Id;
 			if (currentStateID < 0)
 				currentStateID = layer.DefaultStateIndex;
 
 			ref var currentState = ref layer.States[currentStateID];
 			var curStateDuration = CalculateStateDuration(ref currentState, runtimeParams);
 
-			if (Hint.Unlikely(acc.Rtd.SrcState.Id < 0))
+			if (Hint.Unlikely(runtimeLayer.Rtd.SrcState.Id < 0))
 			{
-				acc.Rtd.SrcState = InitRuntimeStateData(layer.DefaultStateIndex);
+				runtimeLayer.Rtd.SrcState = InitRuntimeStateData(layer.DefaultStateIndex);
 			}
 
-			var srcStateDurationFrameDelta = dt / curStateDuration;
-			acc.Rtd.SrcState.NormalizedDuration += srcStateDurationFrameDelta;
+			var srcStateDurationFrameDelta = deltaTime / curStateDuration;
+			runtimeLayer.Rtd.SrcState.NormalizedDuration += srcStateDurationFrameDelta;
 
-			if (acc.Rtd.DstState.Id >= 0)
+			if (runtimeLayer.Rtd.DstState.Id >= 0)
 			{
-				var dstStateDuration = CalculateStateDuration(ref layer.States[acc.Rtd.DstState.Id], runtimeParams);
-				acc.Rtd.DstState.NormalizedDuration += dt / dstStateDuration;
+				var dstStateDuration = CalculateStateDuration(ref layer.States[runtimeLayer.Rtd.DstState.Id], runtimeParams);
+				runtimeLayer.Rtd.DstState.NormalizedDuration += deltaTime / dstStateDuration;
 			}
 
-			if (acc.Rtd.ActiveTransition.Id >= 0)
+			if (runtimeLayer.Rtd.ActiveTransition.Id >= 0)
 			{
-				ref var currentTransitionBlob = ref currentState.Transitions[acc.Rtd.ActiveTransition.Id];
+				ref var currentTransitionBlob = ref currentState.Transitions[runtimeLayer.Rtd.ActiveTransition.Id];
 				var transitionDuration = CalculateTransitionDuration(ref currentTransitionBlob, curStateDuration);
-				acc.Rtd.ActiveTransition.NormalizedDuration += dt / transitionDuration;
+				runtimeLayer.Rtd.ActiveTransition.NormalizedDuration += deltaTime / transitionDuration;
 			}
 
-			ExitTransition(ref acc, ref layer);
-			EnterTransition(ref acc, ref layer, ref runtimeParams, srcStateDurationFrameDelta, curStateDuration);
+			ExitTransition(ref runtimeLayer);
+			EnterTransition(ref runtimeLayer, ref layer, runtimeParams, srcStateDurationFrameDelta, curStateDuration);
+			//	Check tranision exit conditions one more time in case of Enter->Exit sequence appeared in single frame
+			ExitTransition(ref runtimeLayer);
 
 			ProcessTransitionInterruptions();
 		}
@@ -157,53 +156,52 @@ public partial struct AnimatorControllerJob
 			return (l0, l1, l2);
 		}
 
-		private static unsafe void HandleCentroidCase(ref NativeList<MotionIndexAndWeight> rv, float2 pt, ref BlobArray<ChildMotionBlob> mbArr)
+		private static unsafe void HandleCentroidCase(ref NativeList<MotionIndexAndWeight> motionIndexAndWeights, float2 pt, ref BlobArray<ChildMotionBlob> childMotions)
 		{
-			if (math.any(pt))
-				return;
+			if (math.any(pt)) return;
 
-			int i = 0;
-			for (; i < mbArr.Length && math.any(mbArr[i].Position2D); ++i) { }
+			var i = 0;
+			for (; i < childMotions.Length && math.any(childMotions[i].Position2D); ++i) { }
 
-			if (i < mbArr.Length)
+			if (i < childMotions.Length)
 			{
-				var miw = new MotionIndexAndWeight() { MotionIndex = i, Weight = 1 };
-				rv.Add(miw);
+				var miw = new MotionIndexAndWeight { MotionIndex = i, Weight = 1 };
+				motionIndexAndWeights.Add(miw);
 			}
 			else
 			{
-				var f = 1.0f / mbArr.Length;
-				for (int l = 0; l < mbArr.Length; ++l)
+				var f = 1.0f / childMotions.Length;
+				for (var l = 0; l < childMotions.Length; ++l)
 				{
-					var miw = new MotionIndexAndWeight() { MotionIndex = l, Weight = f };
-					rv.Add(miw);
+					var miw = new MotionIndexAndWeight { MotionIndex = l, Weight = f };
+					motionIndexAndWeights.Add(miw);
 				}
 			}
 		}
 
-		public static unsafe NativeList<MotionIndexAndWeight> GetBlendTree2DSimpleDirectionalCurrentMotions(ref MotionBlob mb, in DynamicBuffer<AnimatorControllerParameterComponent> runtimeParams)
+		public static unsafe NativeList<MotionIndexAndWeight> GetBlendTree2DSimpleDirectionalCurrentMotions(ref MotionBlob motionBlob, in NativeArray<AnimatorControllerParameterComponent> runtimeParams)
 		{
-			var rv = new NativeList<MotionIndexAndWeight>(Allocator.Temp);
-			var pX = runtimeParams[mb.BlendTree.BlendParameterIndex];
-			var pY = runtimeParams[mb.BlendTree.BlendParameterYIndex];
+			var motionIndexAndWeights = new NativeList<MotionIndexAndWeight>(Allocator.Temp);
+			var pX = runtimeParams[motionBlob.BlendTree.BlendParameterIndex];
+			var pY = runtimeParams[motionBlob.BlendTree.BlendParameterYIndex];
 			var pt = new float2(pX.FloatValue, pY.FloatValue);
-			ref var motions = ref mb.BlendTree.Motions;
+			ref var motions = ref motionBlob.BlendTree.Motions;
 
 			if (motions.Length < 2)
 			{
 				if (motions.Length == 1)
-					rv.Add(new MotionIndexAndWeight() { Weight = 1, MotionIndex = 0 });
-				return rv;
+					motionIndexAndWeights.Add(new MotionIndexAndWeight { Weight = 1, MotionIndex = 0 });
+				return motionIndexAndWeights;
 			}
 
-			HandleCentroidCase(ref rv, pt, ref motions);
-			if (rv.Length > 0)
-				return rv;
+			HandleCentroidCase(ref motionIndexAndWeights, pt, ref motions);
+			if (motionIndexAndWeights.Length > 0)
+				return motionIndexAndWeights;
 
 			var centerPtIndex = -1;
 			//	Loop over all directions and search for sector that contains requested point
 			var dotProductsAndWeights = new NativeList<MotionIndexAndWeight>(motions.Length, Allocator.Temp);
-			for (int i = 0; i < motions.Length; ++i)
+			for (var i = 0; i < motions.Length; ++i)
 			{
 				ref var m = ref motions[i];
 				var motionDir = m.Position2D;
@@ -213,7 +211,7 @@ public partial struct AnimatorControllerJob
 					continue;
 				}
 				var angle = math.atan2(motionDir.y, motionDir.x);
-				var miw = new MotionIndexAndWeight() { MotionIndex = i, Weight = angle };
+				var miw = new MotionIndexAndWeight { MotionIndex = i, Weight = angle };
 				dotProductsAndWeights.Add(miw);
 			}
 
@@ -264,21 +262,21 @@ public partial struct AnimatorControllerJob
 
 			var evenlyDistributedMotionWeight = centerPtIndex < 0 ? 1.0f / motions.Length * l0 : 0;
 
-			var miw0 = new MotionIndexAndWeight() { MotionIndex = d0.MotionIndex, Weight = m0Weight + evenlyDistributedMotionWeight };
-			rv.Add(miw0);
+			var miw0 = new MotionIndexAndWeight { MotionIndex = d0.MotionIndex, Weight = m0Weight + evenlyDistributedMotionWeight };
+			motionIndexAndWeights.Add(miw0);
 
-			var miw1 = new MotionIndexAndWeight() { MotionIndex = d1.MotionIndex, Weight = m1Weight + evenlyDistributedMotionWeight };
-			rv.Add(miw1);
+			var miw1 = new MotionIndexAndWeight { MotionIndex = d1.MotionIndex, Weight = m1Weight + evenlyDistributedMotionWeight };
+			motionIndexAndWeights.Add(miw1);
 
 			//	Add other motions of blend tree
 			if (evenlyDistributedMotionWeight > 0)
 			{
-				for (int i = 0; i < motions.Length; ++i)
+				for (var i = 0; i < motions.Length; ++i)
 				{
 					if (i != d0.MotionIndex && i != d1.MotionIndex)
 					{
-						var miw = new MotionIndexAndWeight() { MotionIndex = i, Weight = evenlyDistributedMotionWeight };
-						rv.Add(miw);
+						var miw = new MotionIndexAndWeight { MotionIndex = i, Weight = evenlyDistributedMotionWeight };
+						motionIndexAndWeights.Add(miw);
 					}
 				}
 			}
@@ -286,34 +284,34 @@ public partial struct AnimatorControllerJob
 			//	Add centroid motion
 			if (centerPtIndex >= 0)
 			{
-				var miw = new MotionIndexAndWeight() { MotionIndex = centerPtIndex, Weight = l0 };
-				rv.Add(miw);
+				var miw = new MotionIndexAndWeight { MotionIndex = centerPtIndex, Weight = l0 };
+				motionIndexAndWeights.Add(miw);
 			}
 
 			dotProductsAndWeights.Dispose();
 
-			return rv;
+			return motionIndexAndWeights;
 		}
 
-		public static unsafe NativeList<MotionIndexAndWeight> GetBlendTree2DFreeformCartesianCurrentMotions(ref MotionBlob mb, in DynamicBuffer<AnimatorControllerParameterComponent> runtimeParams)
+		public static unsafe NativeList<MotionIndexAndWeight> GetBlendTree2DFreeformCartesianCurrentMotions(ref MotionBlob motionBlob, in NativeArray<AnimatorControllerParameterComponent> runtimeParams)
 		{
-			var pX = runtimeParams[mb.BlendTree.BlendParameterIndex];
-			var pY = runtimeParams[mb.BlendTree.BlendParameterYIndex];
+			var pX = runtimeParams[motionBlob.BlendTree.BlendParameterIndex];
+			var pY = runtimeParams[motionBlob.BlendTree.BlendParameterYIndex];
 			var p = new float2(pX.FloatValue, pY.FloatValue);
-			ref var motions = ref mb.BlendTree.Motions;
+			ref var motions = ref motionBlob.BlendTree.Motions;
 			Span<float> hpArr = stackalloc float[motions.Length];
 
 			var hpSum = 0.0f;
 
 			//	Calculate influence factors
-			for (int i = 0; i < motions.Length; ++i)
+			for (var i = 0; i < motions.Length; ++i)
 			{
 				var pi = motions[i].Position2D;
 				var pip = p - pi;
 
 				var w = 1.0f;
 
-				for (int j = 0; j < motions.Length && w > 0; ++j)
+				for (var j = 0; j < motions.Length && w > 0; ++j)
 				{
 					if (i == j) continue;
 					var pj = motions[j].Position2D;
@@ -326,18 +324,19 @@ public partial struct AnimatorControllerJob
 				hpArr[i] = w;
 			}
 
-			var rv = new NativeList<MotionIndexAndWeight>(motions.Length, Allocator.Temp);
+			var motionIndexAndWeights = new NativeList<MotionIndexAndWeight>(motions.Length, Allocator.Temp);
 			//	Calculate weight functions
-			for (int i = 0; i < motions.Length; ++i)
+			for (var i = 0; i < motions.Length; ++i)
 			{
 				var w = hpArr[i] / hpSum;
 				if (w > 0)
 				{
-					var miw = new MotionIndexAndWeight() { MotionIndex = i, Weight = w };
-					rv.Add(miw);
+					var miw = new MotionIndexAndWeight { MotionIndex = i, Weight = w };
+					motionIndexAndWeights.Add(miw);
 				}
 			}
-			return rv;
+
+			return motionIndexAndWeights;
 		}
 
 		private static float CalcAngle(float2 a, float2 b)
@@ -345,55 +344,56 @@ public partial struct AnimatorControllerJob
 			var cross = a.x * b.y - a.y * b.x;
 			var dot = math.dot(a, b);
 			var tanA = new float2(cross, dot);
-			var rv = math.atan2(tanA.x, tanA.y);
-			return rv;
+
+			return math.atan2(tanA.x, tanA.y);
 		}
 
 		private static float2 CalcAngleWeights(float2 i, float2 j, float2 s)
 		{
-			float2 rv = 0;
+			float2 weights = 0;
 			if (!math. any(i))
 			{
-				rv.x = CalcAngle(j, s);
-				rv.y = 0;
+				weights.x = CalcAngle(j, s);
+				weights.y = 0;
 			}
 			else if (!math.any(j))
 			{
-				rv.x = CalcAngle(i, s);
-				rv.y = rv.x;
+				weights.x = CalcAngle(i, s);
+				weights.y = weights.x;
 			}
 			else
 			{
-				rv.x = CalcAngle(i, j);
+				weights.x = CalcAngle(i, j);
 				if (!math.any(s))
-					rv.y = rv.x;
+					weights.y = weights.x;
 				else
-					rv.y = CalcAngle(i, s);
+					weights.y = CalcAngle(i, s);
 			}
-			return rv;
+
+			return weights;
 		}
 
-		public static unsafe NativeList<MotionIndexAndWeight> GetBlendTree2DFreeformDirectionalCurrentMotions(ref MotionBlob mb, in DynamicBuffer<AnimatorControllerParameterComponent> runtimeParams)
+		public static unsafe NativeList<MotionIndexAndWeight> GetBlendTree2DFreeformDirectionalCurrentMotions(ref MotionBlob motionBlob, in NativeArray<AnimatorControllerParameterComponent> runtimeParams)
 		{
-			var pX = runtimeParams[mb.BlendTree.BlendParameterIndex];
-			var pY = runtimeParams[mb.BlendTree.BlendParameterYIndex];
+			var pX = runtimeParams[motionBlob.BlendTree.BlendParameterIndex];
+			var pY = runtimeParams[motionBlob.BlendTree.BlendParameterYIndex];
 			var p = new float2(pX.FloatValue, pY.FloatValue);
 			var lp = math.length(p);
 
-			ref var motions = ref mb.BlendTree.Motions;
+			ref var motions = ref motionBlob.BlendTree.Motions;
 			Span<float> hpArr = stackalloc float[motions.Length];
 
 			var hpSum = 0.0f;
 
 			//	Calculate influence factors
-			for (int i = 0; i < motions.Length; ++i)
+			for (var i = 0; i < motions.Length; ++i)
 			{
 				var pi = motions[i].Position2D;
 				var lpi = math.length(pi);
 
 				var w = 1.0f;
 
-				for (int j = 0; j < motions.Length && w > 0; ++j)
+				for (var j = 0; j < motions.Length && w > 0; ++j)
 				{
 					if (i == j) continue;
 					var pj = motions[j].Position2D;
@@ -415,28 +415,29 @@ public partial struct AnimatorControllerJob
 				hpArr[i] = w;	
 			}
 
-			var rv = new NativeList<MotionIndexAndWeight>(motions.Length, Allocator.Temp);
+			var motionIndexAndWeights = new NativeList<MotionIndexAndWeight>(motions.Length, Allocator.Temp);
 			//	Calculate weight functions
-			for (int i = 0; i < motions.Length; ++i)
+			for (var i = 0; i < motions.Length; ++i)
 			{
 				var w = hpArr[i] / hpSum;
 				if (w > 0)
 				{
-					var miw = new MotionIndexAndWeight() { MotionIndex = i, Weight = w };
-					rv.Add(miw);
+					var miw = new MotionIndexAndWeight { MotionIndex = i, Weight = w };
+					motionIndexAndWeights.Add(miw);
 				}
 			}
-			return rv;
+
+			return motionIndexAndWeights;
 		}
 		
-		public static NativeList<MotionIndexAndWeight> GetBlendTree1DCurrentMotions(ref MotionBlob mb, in DynamicBuffer<AnimatorControllerParameterComponent> runtimeParams)
+		public static NativeList<MotionIndexAndWeight> GetBlendTree1DCurrentMotions(ref MotionBlob motionBlob, in NativeArray<AnimatorControllerParameterComponent> runtimeParams)
 		{
-			var blendTreeParameter = runtimeParams[mb.BlendTree.BlendParameterIndex];
-			ref var motions = ref mb.BlendTree.Motions;
+			var blendTreeParameter = runtimeParams[motionBlob.BlendTree.BlendParameterIndex];
+			ref var motions = ref motionBlob.BlendTree.Motions;
 			var i0 = 0;
 			var i1 = 0;
-			bool found = false;
-			for (int i = 0; i < motions.Length && !found; ++i)
+			var found = false;
+			for (var i = 0; i < motions.Length && !found; ++i)
 			{
 				ref var m = ref motions[i];
 				i0 = i1;
@@ -451,137 +452,140 @@ public partial struct AnimatorControllerJob
 
 			var motion0Threshold = motions[i0].Threshold;
 			var motion1Threshold = motions[i1].Threshold;
-			float f = i1 == i0 ? 0 : (blendTreeParameter.FloatValue - motion0Threshold) / (motion1Threshold - motion0Threshold);
+			var f = i1 == i0 ? 0 : (blendTreeParameter.FloatValue - motion0Threshold) / (motion1Threshold - motion0Threshold);
 
-			var rv = new NativeList<MotionIndexAndWeight>(2, Allocator.Temp);
-			rv.Add(new MotionIndexAndWeight { MotionIndex = i0, Weight = 1 - f });
-			rv.Add(new MotionIndexAndWeight { MotionIndex = i1, Weight = f });
-			return rv;
+			var motionIndexAndWeights = new NativeList<MotionIndexAndWeight>(2, Allocator.Temp);
+			motionIndexAndWeights.Add(new MotionIndexAndWeight { MotionIndex = i0, Weight = 1 - f });
+			motionIndexAndWeights.Add(new MotionIndexAndWeight { MotionIndex = i1, Weight = f });
+
+			return motionIndexAndWeights;
 		}
 
-		public static NativeList<MotionIndexAndWeight> GetBlendTreeDirectCurrentMotions(ref MotionBlob mb, in DynamicBuffer<AnimatorControllerParameterComponent> runtimeParams)
+		public static NativeList<MotionIndexAndWeight> GetBlendTreeDirectCurrentMotions(ref MotionBlob motionBlob, in NativeArray<AnimatorControllerParameterComponent> runtimeParams)
 		{
-			ref var motions = ref mb.BlendTree.Motions;
-			var rv = new NativeList<MotionIndexAndWeight>(motions.Length, Allocator.Temp);
+			ref var motions = ref motionBlob.BlendTree.Motions;
+			var motionIndexAndWeights = new NativeList<MotionIndexAndWeight>(motions.Length, Allocator.Temp);
 
 			var weightSum = 0.0f;
-			for (int i = 0; i < motions.Length; ++i)
+			for (var i = 0; i < motions.Length; ++i)
 			{
 				ref var cm = ref motions[i];
 				var w = cm.DirectBlendParameterIndex >= 0 ? runtimeParams[cm.DirectBlendParameterIndex].FloatValue : 0;
 				if (w > 0)
 				{
-					var miw = new MotionIndexAndWeight() { MotionIndex = i, Weight = w };
+					var miw = new MotionIndexAndWeight { MotionIndex = i, Weight = w };
 					weightSum += miw.Weight;
-					rv.Add(miw);
+					motionIndexAndWeights.Add(miw);
 				}
 			}
 
-			if (mb.BlendTree.NormalizeBlendValues && weightSum > 1)
+			if (motionBlob.BlendTree.NormalizeBlendValues && weightSum > 1)
 			{
-				for (int i = 0; i < rv.Length; ++i)
+				for (var i = 0; i < motionIndexAndWeights.Length; ++i)
 				{
-					var miw = rv[i];
+					var miw = motionIndexAndWeights[i];
 					miw.Weight = miw.Weight / weightSum;
-					rv[i] = miw;
+					motionIndexAndWeights[i] = miw;
 				}
 			}
 
-			return rv;
+			return motionIndexAndWeights;
 		}
 
-		private unsafe float CalculateMotionDuration(ref MotionBlob mb, in DynamicBuffer<AnimatorControllerParameterComponent> runtimeParams, float weight)
+		private unsafe float CalculateMotionDuration(ref MotionBlob motionBlob, in NativeArray<AnimatorControllerParameterComponent> runtimeParams, float weight)
 		{
 			if (weight == 0) return 0;
 
 			NativeList<MotionIndexAndWeight> blendTreeMotionsAndWeights = default;
-			switch (mb.MotionType)
+			switch (motionBlob.MotionType)
 			{
-			case MotionBlob.Type.None:
-				return 1;
-			case MotionBlob.Type.AnimationClip:
-				return mb.AnimationBlob.Value.Length * weight;
-			case MotionBlob.Type.BlendTreeDirect:
-				blendTreeMotionsAndWeights = GetBlendTreeDirectCurrentMotions(ref mb, runtimeParams);
-				break;
-			case MotionBlob.Type.BlendTree1D:
-				blendTreeMotionsAndWeights = GetBlendTree1DCurrentMotions(ref mb, runtimeParams);
-				break;
-			case MotionBlob.Type.BlendTree2DSimpleDirectional:
-				blendTreeMotionsAndWeights = GetBlendTree2DSimpleDirectionalCurrentMotions(ref mb, runtimeParams);
-				break;
-			case MotionBlob.Type.BlendTree2DFreeformCartesian:
-				blendTreeMotionsAndWeights = GetBlendTree2DFreeformCartesianCurrentMotions(ref mb, runtimeParams);
-				break;
-			case MotionBlob.Type.BlendTree2DFreeformDirectional:
-				blendTreeMotionsAndWeights = GetBlendTree2DFreeformDirectionalCurrentMotions(ref mb, runtimeParams);
-				break;
-			default:
-				Debug.Log($"Unsupported blend tree type");
-				break;
+				case MotionBlob.Type.None:
+					return 1;
+				case MotionBlob.Type.AnimationClip:
+					return motionBlob.AnimationBlob.Value.Length * weight;
+				case MotionBlob.Type.BlendTreeDirect:
+					blendTreeMotionsAndWeights = GetBlendTreeDirectCurrentMotions(ref motionBlob, runtimeParams);
+					break;
+				case MotionBlob.Type.BlendTree1D:
+					blendTreeMotionsAndWeights = GetBlendTree1DCurrentMotions(ref motionBlob, runtimeParams);
+					break;
+				case MotionBlob.Type.BlendTree2DSimpleDirectional:
+					blendTreeMotionsAndWeights = GetBlendTree2DSimpleDirectionalCurrentMotions(ref motionBlob, runtimeParams);
+					break;
+				case MotionBlob.Type.BlendTree2DFreeformCartesian:
+					blendTreeMotionsAndWeights = GetBlendTree2DFreeformCartesianCurrentMotions(ref motionBlob, runtimeParams);
+					break;
+				case MotionBlob.Type.BlendTree2DFreeformDirectional:
+					blendTreeMotionsAndWeights = GetBlendTree2DFreeformDirectionalCurrentMotions(ref motionBlob, runtimeParams);
+					break;
+				default:
+					Debug.Log($"Unsupported blend tree type");
+					break;
 			}
 
-			var rv = CalculateBlendTreeMotionDuration(blendTreeMotionsAndWeights, ref mb.BlendTree.Motions, runtimeParams, weight);
+			var motionDuration = CalculateBlendTreeMotionDuration(blendTreeMotionsAndWeights, ref motionBlob.BlendTree.Motions, runtimeParams, weight);
 			if (blendTreeMotionsAndWeights.IsCreated) blendTreeMotionsAndWeights.Dispose();
 			
-			return rv;
+			return motionDuration;
 		}
 
-		private float CalculateBlendTreeMotionDuration(NativeList<MotionIndexAndWeight> miwArr, ref BlobArray<ChildMotionBlob> motions, in DynamicBuffer<AnimatorControllerParameterComponent> runtimeParams, float weight)
+		private float CalculateBlendTreeMotionDuration(NativeList<MotionIndexAndWeight> motionIndexAndWeights, ref BlobArray<ChildMotionBlob> childMotionBlobs, in NativeArray<AnimatorControllerParameterComponent> runtimeParams, float weight)
 		{
-			if (!miwArr.IsCreated || miwArr.IsEmpty)
+			if (!motionIndexAndWeights.IsCreated || motionIndexAndWeights.IsEmpty)
 				return 1;
 
 			var weightSum = 0.0f;
-			for (int i = 0; i < miwArr.Length; ++i)
-				weightSum += miwArr[i].Weight;
+			for (var i = 0; i < motionIndexAndWeights.Length; ++i)
+				weightSum += motionIndexAndWeights[i].Weight;
 
 			//	If total weight less then 1, normalize weights
 			if (Hint.Unlikely(weightSum < 1))
 			{
-				for (int i = 0; i < miwArr.Length; ++i)
+				for (var i = 0; i < motionIndexAndWeights.Length; ++i)
 				{
-					var miw = miwArr[i];
+					var miw = motionIndexAndWeights[i];
 					miw.Weight = miw.Weight / weightSum;
-					miwArr[i] = miw;
+					motionIndexAndWeights[i] = miw;
 				}
 			}
 
-			var rv = 0.0f;
-			for (int i = 0; i < miwArr.Length; ++i)
+			var duration = 0.0f;
+			for (var i = 0; i < motionIndexAndWeights.Length; ++i)
 			{
-				var miw = miwArr[i];
-				ref var m = ref motions[miw.MotionIndex];
-				rv += CalculateMotionDuration(ref m.Motion, runtimeParams, weight * miw.Weight) / m.TimeScale;
+				var miw = motionIndexAndWeights[i];
+				ref var m = ref childMotionBlobs[miw.MotionIndex];
+				duration += CalculateMotionDuration(ref m.Motion, runtimeParams, weight * miw.Weight) / m.TimeScale;
 			}
 
-			return rv;
+			return duration;
 		}
 
-		private float CalculateTransitionDuration(ref TransitionBlob tb, float curStateDuration)
+		private float CalculateTransitionDuration(ref TransitionBlob transitionBlob, float curStateDuration)
 		{
-			var rv = tb.Duration;
-			if (!tb.HasFixedDuration)
+			var duration = transitionBlob.Duration;
+			if (!transitionBlob.HasFixedDuration)
 			{
-				rv *= curStateDuration;
+				duration *= curStateDuration;
 			}
-			return math.max(rv, 0.0001f);
+
+			return math.max(duration, 0.0001f);
 		}
 
-		private float CalculateStateDuration(ref StateBlob sb, in DynamicBuffer<AnimatorControllerParameterComponent> runtimeParams)
+		private float CalculateStateDuration(ref StateBlob stateBlob, in NativeArray<AnimatorControllerParameterComponent> runtimeParams)
 		{
-			var motionDuration = CalculateMotionDuration(ref sb.Motion, runtimeParams, 1);
-			var speedMuliplier = 1.0f;
-			if (sb.SpeedMultiplierParameterIndex >= 0)
+			var motionDuration = CalculateMotionDuration(ref stateBlob.Motion, runtimeParams, 1);
+			var speedMultiplier = 1.0f;
+			if (stateBlob.SpeedMultiplierParameterIndex >= 0)
 			{
-				speedMuliplier = runtimeParams[sb.SpeedMultiplierParameterIndex].FloatValue;
+				speedMultiplier = runtimeParams[stateBlob.SpeedMultiplierParameterIndex].FloatValue;
 			}
-			return motionDuration / (sb.Speed * speedMuliplier);
+
+			return motionDuration / (stateBlob.Speed * speedMultiplier);
 		}
 
 		internal static float GetLoopAwareTransitionExitTime(float exitTime, float normalizedDuration, float speedSign)
 		{
-			var rv = exitTime;
+			var time = exitTime;
 			if (exitTime <= 1.0f)
 			{
 				//	Unity animator logic and documentation mismatch. Documentation says that exit time loop condition should be when transition exitTime less then 1, but in practice it will loop when exitTime is less or equal(!) to 1.
@@ -589,157 +593,158 @@ public partial struct AnimatorControllerJob
 				var snd = normalizedDuration * speedSign;
 
 				var f = math.frac(snd);
-				rv += (int)snd;
+				time += (int)snd;
 				if (f > exitTime)
-					rv += 1;
+					time += 1;
 			}
-			return rv * speedSign;
+			return time * speedSign;
 		}
 
-		private float GetTimeInSecondsShouldBeInTransition(ref TransitionBlob tb, RuntimeAnimatorData.StateRuntimeData curStateRtd, float curStateDuration, float frameDT)
+		private float GetTimeInSecondsShouldBeInTransition(ref TransitionBlob transitionBlob,
+			RuntimeAnimatorData.StateRuntimeData curStateRuntimeData,
+			float curStateDuration,
+			float frameDeltaTime)
 		{
-			if (!tb.HasExitTime) return 0;
+			if (!transitionBlob.HasExitTime) return 0;
 
 			//	This should be always less then curStateRTD.normalizedDuration
-			var loopAwareExitTime = GetLoopAwareTransitionExitTime(tb.ExitTime, curStateRtd.NormalizedDuration - frameDT, math.sign(frameDT));
-			var loopDelta = curStateRtd.NormalizedDuration - loopAwareExitTime;
-			var rv = loopDelta * curStateDuration;
-			return rv;
+			var loopAwareExitTime = GetLoopAwareTransitionExitTime(transitionBlob.ExitTime, curStateRuntimeData.NormalizedDuration - frameDeltaTime, math.sign(frameDeltaTime));
+			var loopDelta = curStateRuntimeData.NormalizedDuration - loopAwareExitTime;
+
+			return loopDelta * curStateDuration;
 		}
 
-		private bool CheckTransitionEnterExitTimeCondition
-		(
-			ref TransitionBlob tb,
+		private bool CheckTransitionEnterExitTimeCondition(ref TransitionBlob transitionBlob,
 			RuntimeAnimatorData.StateRuntimeData curStateRuntimeData,
-			float srcStateDurationFrameDelta
-		)
+			float srcStateDurationFrameDelta)
 		{
 			var normalizedStateDuration = curStateRuntimeData.NormalizedDuration; 
 
-			var noNormalConditions = tb.Conditions.Length == 0;
-			if (!tb.HasExitTime) return !noNormalConditions;
+			var noNormalConditions = transitionBlob.Conditions.Length == 0;
+			if (!transitionBlob.HasExitTime) return !noNormalConditions;
 
 			var l0 = normalizedStateDuration - srcStateDurationFrameDelta;
 			var l1 = normalizedStateDuration;
 			var speedSign = math.select(-1, 1, l0 < l1);
 
-			var loopAwareExitTime = GetLoopAwareTransitionExitTime(tb.ExitTime, l0, speedSign);
+			var loopAwareExitTime = GetLoopAwareTransitionExitTime(transitionBlob.ExitTime, l0, speedSign);
 
-			if (speedSign < 0)
-				MathUtils.Swap(ref l0, ref l1);
+			if (speedSign < 0) MathUtils.Swap(ref l0, ref l1);
 
-			var rv = loopAwareExitTime > l0 && loopAwareExitTime <= l1;
-			return rv;
+			return loopAwareExitTime > l0 && loopAwareExitTime <= l1;
 		}
 
-		private bool CheckIntCondition(in AnimatorControllerParameterComponent param, ref ConditionBlob c)
+		private bool CheckIntCondition(in AnimatorControllerParameterComponent param, ref ConditionBlob conditionBlob)
 		{
-			var rv = true;
-			switch (c.ConditionMode)
+			var hasCondition = true;
+			switch (conditionBlob.ConditionMode)
 			{
-			case AnimatorConditionMode.Equals:
-				if (param.IntValue != c.Threshold.intValue) rv = false;
-				break;
-			case AnimatorConditionMode.Greater:
-				if (param.IntValue <= c.Threshold.intValue) rv = false;
-				break;
-			case AnimatorConditionMode.Less:
-				if (param.IntValue >= c.Threshold.intValue) rv = false;
-				break;
-			case AnimatorConditionMode.NotEqual:
-				if (param.IntValue == c.Threshold.intValue) rv = false;
-				break;
-			default:
-				Debug.LogError($"Unsupported condition type for int parameter value!");
-				break;
+				case AnimatorConditionMode.Equals:
+					if (param.IntValue != conditionBlob.Threshold.intValue) hasCondition = false;
+					break;
+				case AnimatorConditionMode.Greater:
+					if (param.IntValue <= conditionBlob.Threshold.intValue) hasCondition = false;
+					break;
+				case AnimatorConditionMode.Less:
+					if (param.IntValue >= conditionBlob.Threshold.intValue) hasCondition = false;
+					break;
+				case AnimatorConditionMode.NotEqual:
+					if (param.IntValue == conditionBlob.Threshold.intValue) hasCondition = false;
+					break;
+				default:
+					Debug.LogError($"Unsupported condition type for int parameter value!");
+					break;
 			}
-			return rv;
+
+			return hasCondition;
 		}
 
-		private bool CheckFloatCondition(in AnimatorControllerParameterComponent param, ref ConditionBlob c)
+		private bool CheckFloatCondition(in AnimatorControllerParameterComponent param, ref ConditionBlob conditionBlob)
 		{
-			var rv = true;
-			switch (c.ConditionMode)
+			var hasCondition = true;
+			switch (conditionBlob.ConditionMode)
 			{
-			case AnimatorConditionMode.Greater:
-				if (param.FloatValue <= c.Threshold.floatValue) rv = false;
-				break;
-			case AnimatorConditionMode.Less:
-				if (param.FloatValue >= c.Threshold.floatValue) rv = false;
-				break;
-			default:
-				Debug.LogError($"Unsupported condition type for int parameter value!");
-				break;
+				case AnimatorConditionMode.Greater:
+					if (param.FloatValue <= conditionBlob.Threshold.floatValue) hasCondition = false;
+					break;
+				case AnimatorConditionMode.Less:
+					if (param.FloatValue >= conditionBlob.Threshold.floatValue) hasCondition = false;
+					break;
+				default:
+					Debug.LogError($"Unsupported condition type for int parameter value!");
+					break;
 			}
-			return rv;
+
+			return hasCondition;
 		}
 
-		private bool CheckBoolCondition(in AnimatorControllerParameterComponent param, ref ConditionBlob c)
+		private bool CheckBoolCondition(in AnimatorControllerParameterComponent param, ref ConditionBlob conditionBlob)
 		{
-			var rv = true;
-			switch (c.ConditionMode)
+			var hasCondition = true;
+			switch (conditionBlob.ConditionMode)
 			{
-			case AnimatorConditionMode.If:
-				rv = param.BoolValue;
-				break;
-			case AnimatorConditionMode.IfNot:
-				rv = !param.BoolValue;
-				break;
-			default:
-				Debug.LogError($"Unsupported condition type for int parameter value!");
-				break;
+				case AnimatorConditionMode.If:
+					hasCondition = param.BoolValue;
+					break;
+				case AnimatorConditionMode.IfNot:
+					hasCondition = !param.BoolValue;
+					break;
+				default:
+					Debug.LogError($"Unsupported condition type for int parameter value!");
+					break;
 			}
-			return rv;
+
+			return hasCondition;
 		}
 
-		private void ResetTriggers(ref TransitionBlob tb, ref DynamicBuffer<AnimatorControllerParameterComponent> runtimeParams)
+		private void ResetTriggers(ref TransitionBlob transitionBlob, NativeArray<AnimatorControllerParameterComponent> runtimeParams)
 		{
-			for (int i = 0; i < tb.Conditions.Length; ++i)
+			for (var i = 0; i < transitionBlob.Conditions.Length; ++i)
 			{
-				ref var c = ref tb.Conditions[i];
-				var param = runtimeParams[c.ParamIdx];
+				ref var condition = ref transitionBlob.Conditions[i];
+				var param = runtimeParams[condition.ParamIdx];
 				if (param.Type == ControllerParameterType.Trigger)
 				{
 					param.Value.boolValue = false;
-					runtimeParams[c.ParamIdx] = param;
+					runtimeParams[condition.ParamIdx] = param;
 				}
 			}
 		}
 
-		private bool CheckTransitionEnterConditions(ref TransitionBlob tb, ref DynamicBuffer<AnimatorControllerParameterComponent> runtimeParams)
+		private bool CheckTransitionEnterConditions(ref TransitionBlob transitionBlob, NativeArray<AnimatorControllerParameterComponent> runtimeParams)
 		{
-			if (tb.Conditions.Length == 0)
+			if (transitionBlob.Conditions.Length == 0)
 				return true;
 
-			var rv = true;
+			var hasCondition = true;
 			var hasTriggers = false;
-			for (int i = 0; i < tb.Conditions.Length && rv; ++i)
+			for (var i = 0; i < transitionBlob.Conditions.Length && hasCondition; ++i)
 			{
-				ref var c = ref tb.Conditions[i];
-				var param = runtimeParams[c.ParamIdx];
+				ref var condition = ref transitionBlob.Conditions[i];
+				var param = runtimeParams[condition.ParamIdx];
 
 				switch (param.Type)
 				{
-				case ControllerParameterType.Float:
-					rv = CheckFloatCondition(param, ref c);
-					break;
-				case ControllerParameterType.Int:
-					rv = CheckIntCondition(param, ref c);
-					break;
-				case ControllerParameterType.Bool:
-					rv = CheckBoolCondition(param, ref c);
-					break;
-				case ControllerParameterType.Trigger:
-					rv = CheckBoolCondition(param, ref c);
-					hasTriggers = true;
-					break;
+					case ControllerParameterType.Float:
+						hasCondition = CheckFloatCondition(param, ref condition);
+						break;
+					case ControllerParameterType.Int:
+						hasCondition = CheckIntCondition(param, ref condition);
+						break;
+					case ControllerParameterType.Bool:
+						hasCondition = CheckBoolCondition(param, ref condition);
+						break;
+					case ControllerParameterType.Trigger:
+						hasCondition = CheckBoolCondition(param, ref condition);
+						hasTriggers = true;
+						break;
 				}
 			}
 
-			if (hasTriggers && rv)
-				ResetTriggers(ref tb, ref runtimeParams);
+			if (hasTriggers && hasCondition)
+				ResetTriggers(ref transitionBlob, runtimeParams);
 
-			return rv;
+			return hasCondition;
 		}
 
 		private bool CheckTransitionExitConditions(RuntimeAnimatorData.StateRuntimeData transitionRuntimeData)
@@ -757,12 +762,12 @@ public partial struct AnimatorControllerJob
 		#if AURORE_DEBUG
 			if (!DoLogging) return;
 
-			ref var c = ref curData.Controller.Value;
-			ref var layer = ref c.Layers[curData.LayerIndex];
-			ref var currentState = ref layer.States[curData.Rtd.SrcState.Id];
+			ref var controllerBlob = ref curData.Controller.Value;
+			ref var controllerBlobLayer = ref controllerBlob.Layers[curData.LayerIndex];
+			ref var currentState = ref controllerBlobLayer.States[curData.Rtd.SrcState.Id];
 
-			var layerName = layer.Name.ToFixedString();
-			var controllerName = c.Name.ToFixedString();
+			var layerName = controllerBlobLayer.Name.ToFixedString();
+			var controllerName = controllerBlob.Name.ToFixedString();
 			var curStateName = currentState.Name.ToFixedString();
 
 			Debug.Log($"[{frameIndex}:{controllerName}:{layerName}] In state: '{curStateName}' with normalized duration: {curData.Rtd.SrcState.NormalizedDuration}");
@@ -770,24 +775,24 @@ public partial struct AnimatorControllerJob
 			//	Exit transition event
 			if (prevData.Rtd.ActiveTransition.Id >= 0 && curData.Rtd.ActiveTransition.Id != prevData.Rtd.ActiveTransition.Id)
 			{
-				ref var t = ref layer.States[prevData.Rtd.SrcState.Id].Transitions[prevData.Rtd.ActiveTransition.Id];
+				ref var t = ref controllerBlobLayer.States[prevData.Rtd.SrcState.Id].Transitions[prevData.Rtd.ActiveTransition.Id];
 				Debug.Log($"[{frameIndex}:{controllerName}:{layerName}] Exiting transition: '{t.Name.ToFixedString()}'");
 			}
 
 			//	Enter transition event
 			if (curData.Rtd.ActiveTransition.Id >= 0)
 			{
-				ref var t = ref layer.States[curData.Rtd.SrcState.Id].Transitions[curData.Rtd.ActiveTransition.Id];
+				ref var t = ref controllerBlobLayer.States[curData.Rtd.SrcState.Id].Transitions[curData.Rtd.ActiveTransition.Id];
 				if (curData.Rtd.ActiveTransition.Id != prevData.Rtd.ActiveTransition.Id)
 				{
-					Debug.Log($"[{frameIndex}:{controllerName}:{layerName}] Entering transition: '{t.Name.ToFixedString()}'");
+					Debug.Log($"[{frameIndex}:{controllerName}:{layerName}] Entering transition: '{t.Name.ToFixedString()}' with time: {{curData.Rtd.ActiveTransition.NormalizedDuration}}");
 				}
 				else
 				{
-					ref var dstState = ref layer.States[curData.Rtd.DstState.Id];
 					Debug.Log($"[{frameIndex}:{controllerName}:{layerName}] In transition: '{t.Name.ToFixedString()}' with time: {curData.Rtd.ActiveTransition.NormalizedDuration}");
-					Debug.Log($"[{frameIndex}:{controllerName}:{layerName}] Target state: '{dstState.Name.ToFixedString()}' with time: {curData.Rtd.DstState.NormalizedDuration}");
 				}
+				ref var dstState = ref controllerBlobLayer.States[curData.Rtd.DstState.Id];
+				Debug.Log($"[{frameIndex}:{controllerName}:{layerName}] Target state: '{dstState.Name.ToFixedString()}' with time: {curData.Rtd.DstState.NormalizedDuration}");
 			}
 		#endif
 		}

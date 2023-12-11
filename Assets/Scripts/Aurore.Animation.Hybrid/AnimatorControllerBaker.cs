@@ -1,4 +1,5 @@
 #if UNITY_EDITOR
+using System;
 using System.Collections.Generic;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
@@ -6,8 +7,14 @@ using Unity.Entities;
 using UnityEditor;
 using UnityEditor.Animations;
 using UnityEngine;
-using FixedStringName = Unity.Collections.FixedString512Bytes;
+using AnimationClip = UnityEngine.AnimationClip;
+using BlendTree = UnityEditor.Animations.BlendTree;
+using ChildMotion = UnityEditor.Animations.ChildMotion;
 using Hash128 = Unity.Entities.Hash128;
+using Motion = UnityEngine.Motion;
+#if AURORE_DEBUG
+using FixedStringName = Unity.Collections.FixedString512Bytes;
+#endif
 
 [TemporaryBakingType]
 public struct AnimatorControllerBakerData: IComponentData
@@ -22,6 +29,42 @@ public struct AnimatorControllerBakerData: IComponentData
 
 public class AnimatorControllerBaker: Baker<Animator>
 {
+	private struct TransitionPrototype
+	{
+		public AnimatorState DestinationState;
+		public AnimatorStateMachine DestinationStateMachine;
+		public float Duration;
+		public float ExitTime;
+		public bool HasExitTime;
+		public bool HasFixedDuration;
+		public float Offset;
+		public bool Muted;
+		public bool Solo;
+		public bool CanTransitionToSelf;
+		public string OwnStateName;
+		public string Name;
+		public AnimatorCondition[] Conditions;
+
+		public TransitionPrototype(AnimatorStateTransition stateTransition, string ownStateName)
+		{
+			Duration = stateTransition.duration;
+			ExitTime = stateTransition.exitTime;
+			HasExitTime = stateTransition.hasExitTime;
+			HasFixedDuration = stateTransition.hasFixedDuration;
+			Offset = stateTransition.offset;
+			Solo = stateTransition.solo;
+			Muted = stateTransition.mute;
+			CanTransitionToSelf = stateTransition.canTransitionToSelf;
+			DestinationState = stateTransition.destinationState;
+			Conditions = stateTransition.conditions;
+			DestinationStateMachine = stateTransition.destinationStateMachine;
+			OwnStateName = ownStateName;
+			Name = stateTransition.name;
+		}
+	}
+
+	private Dictionary<AnimatorStateMachine, AnimatorStateMachine> m_StateMachineParents;
+
 	public override void Bake(Animator authoring)
 	{
 		//	Skip animators without rig definition
@@ -74,10 +117,7 @@ public class AnimatorControllerBaker: Baker<Animator>
 		DependsOn(controller);
 
 		var animationClips = runtimeController.animationClips;
-		foreach (var clip in animationClips)
-		{
-			DependsOn(clip);
-		}
+		foreach (var clip in animationClips) DependsOn(clip);
 	}
 
 	private RuntimeAnimatorController GetRuntimeAnimatorController(Animator animator)
@@ -112,19 +152,21 @@ public class AnimatorControllerBaker: Baker<Animator>
 		return hashCodes;
 	}
 
-	private RTP.Controller GenerateControllerComputationData(AnimatorController ac, List<int> allClipsHashCodes)
+	private RTP.Controller GenerateControllerComputationData(AnimatorController controller, List<int> allClipsHashCodes)
 	{
+		m_StateMachineParents = CreateParentsStateMachineDictionary(controller);
+
 		var bakedController = new RTP.Controller();
-		bakedController.Name = ac.name;
-		bakedController.Parameters = GenerateControllerParametersComputationData(ac.parameters);
+		bakedController.Name = controller.name;
+		bakedController.Parameters = GenerateControllerParametersComputationData(controller.parameters);
 
-		bakedController.Layers = new UnsafeList<RTP.Layer>(ac.layers.Length, Allocator.Persistent);
+		bakedController.Layers = new UnsafeList<RTP.Layer>(controller.layers.Length, Allocator.Persistent);
 
-		for (var i = 0; i < ac.layers.Length; ++i)
+		for (var i = 0; i < controller.layers.Length; ++i)
 		{
-			var l = ac.layers[i];
-			var lOverriden = l.syncedLayerIndex >= 0 ? ac.layers[l.syncedLayerIndex] : l;
-			var layerData = GenerateControllerLayerComputationData(lOverriden, l, allClipsHashCodes, i, bakedController.Parameters);
+			var layer = controller.layers[i];
+			var layerOverriden = layer.syncedLayerIndex >= 0 ? controller.layers[layer.syncedLayerIndex] : layer;
+			var layerData = GenerateControllerLayerComputationData(layerOverriden, layer, allClipsHashCodes, i, bakedController.Parameters);
 			if (!layerData.States.IsEmpty)
 				bakedController.Layers.Add(layerData);
 		}
@@ -167,28 +209,28 @@ public class AnimatorControllerBaker: Baker<Animator>
 		return bakedParams;
 	}
 
-	private RTP.Layer GenerateControllerLayerComputationData(AnimatorControllerLayer controllerLayer,
-		AnimatorControllerLayer aclOverriden,
+	private RTP.Layer GenerateControllerLayerComputationData(AnimatorControllerLayer layer,
+		AnimatorControllerLayer layerOverriden,
 		List<int> allClipsHashCodes,
 		int layerIndex,
 		in UnsafeList<RTP.Parameter> allParams)
 	{
 		var bakedLayer = new RTP.Layer();
-		bakedLayer.Name = controllerLayer.name;
+		bakedLayer.Name = layer.name;
 
 		var stateList = new UnsafeList<RTP.State>(128, Allocator.Persistent);
 		var anyStateTransitions = new UnsafeList<RTP.Transition>(128, Allocator.Persistent);
 
-		GenerateControllerStateMachineComputationData(controllerLayer.stateMachine, null, controllerLayer, aclOverriden, allClipsHashCodes, ref stateList, ref anyStateTransitions, allParams);
-		bakedLayer.AvatarMask = AvatarMaskConversionSystem.PrepareAvatarMaskComputeData(controllerLayer.avatarMask);
+		GenerateControllerStateMachineComputationData(layer.stateMachine, layerOverriden, allClipsHashCodes, ref stateList, ref anyStateTransitions, allParams);
+		bakedLayer.AvatarMask = AvatarMaskConversionSystem.PrepareAvatarMaskComputeData(layer.avatarMask);
 		bakedLayer.States = stateList;
 
-		var defaultState = controllerLayer.stateMachine.defaultState;
+		var defaultState = layer.stateMachine.defaultState;
 
 		bakedLayer.DefaultStateIndex = defaultState == null ? -1 : stateList.IndexOf(defaultState.GetHashCode());
 		bakedLayer.AnyStateTransitions = anyStateTransitions;
-		bakedLayer.Weight = layerIndex == 0 ? 1 : aclOverriden.defaultWeight;
-		bakedLayer.BlendMode = (AnimationBlendingMode)aclOverriden.blendingMode;
+		bakedLayer.Weight = layerIndex == 0 ? 1 : layerOverriden.defaultWeight;
+		bakedLayer.BlendMode = (AnimationBlendingMode)layerOverriden.blendingMode;
 
 		return bakedLayer;
 	}
@@ -199,6 +241,8 @@ public class AnimatorControllerBaker: Baker<Animator>
 		bakedCondition.ParamName = condition.parameter;
 
 		var paramIdx = allParams.IndexOf(bakedCondition.ParamName);
+		if (paramIdx < 0) return default;
+
 		var param = allParams[paramIdx];
 
 		switch (param.Type)
@@ -221,75 +265,134 @@ public class AnimatorControllerBaker: Baker<Animator>
 		return bakedCondition;
 	}
 
-	private RTP.Transition GenerateTransitionDataBetweenStates(AnimatorStateTransition stateTransition,
-		string ownStateName,
-		AnimatorState dstState,
-		AnimatorCondition[] conditions,
-		in UnsafeList<RTP.Parameter> allParams)
+	private RTP.Transition GenerateTransitionDataBetweenStates(in TransitionPrototype prototype, in UnsafeList<RTP.Parameter> allParams)
 	{
 		var bakedTransition = new RTP.Transition();
 
-		bakedTransition.Duration = stateTransition.duration;
-		bakedTransition.ExitTime = stateTransition.exitTime;
-		bakedTransition.HasExitTime = stateTransition.hasExitTime;
-		bakedTransition.HasFixedDuration = stateTransition.hasFixedDuration;
-		bakedTransition.Offset = stateTransition.offset;
-		bakedTransition.TargetStateHash = dstState.GetHashCode();
-		bakedTransition.Conditions = new UnsafeList<RTP.Condition>(conditions.Length, Allocator.Persistent);
-		bakedTransition.SoloFlag = stateTransition.solo;
-		bakedTransition.MuteFlag = stateTransition.mute;
-		bakedTransition.CanTransitionToSelf = stateTransition.canTransitionToSelf;
+		bakedTransition.Duration = prototype.Duration;
+		bakedTransition.ExitTime = prototype.ExitTime;
+		bakedTransition.HasExitTime = prototype.HasExitTime;
+		bakedTransition.HasFixedDuration = prototype.HasFixedDuration;
+		bakedTransition.Offset = prototype.Offset;
+		bakedTransition.TargetStateHash = prototype.DestinationState.GetHashCode();
+		bakedTransition.Conditions = new UnsafeList<RTP.Condition>(prototype.Conditions.Length, Allocator.Persistent);
+		bakedTransition.SoloFlag = prototype.Solo;
+		bakedTransition.MuteFlag = prototype.Muted;
+		bakedTransition.CanTransitionToSelf = prototype.CanTransitionToSelf;
 
-		bakedTransition.Name = stateTransition.name != "" ? stateTransition.name : $"{ownStateName} -> {dstState.name}";
+		bakedTransition.Name = prototype.Name != "" ? prototype.Name : $"{prototype.OwnStateName} -> {prototype.DestinationState.name}";
 
-		for (var i = 0; i < conditions.Length; ++i)
+		for (var i = 0; i < prototype.Conditions.Length; ++i)
 		{
-			bakedTransition.Conditions.Add(GenerateControllerConditionComputationData(conditions[i], allParams));
+			var condition = prototype.Conditions[i];
+			var createdCondition = GenerateControllerConditionComputationData(condition, allParams);
+			if (!createdCondition.ParamName.IsEmpty)
+				bakedTransition.Conditions.Add(createdCondition);
 		}
 
 		return bakedTransition;
 	}
 
-	private NativeList<RTP.Transition> GenerateControllerTransitionComputationData(AnimatorStateTransition stateTransition,
-		AnimatorStateMachine ourStateMachine,
-		AnimatorStateMachine parentStateMachine,
-		string ownStateName,
+	private AnimatorCondition[] MergeConditions(AnimatorCondition[] a, AnimatorCondition[] b)
+	{
+		var animatorCondition = new AnimatorCondition[a.Length + b.Length];
+
+		Array.Copy(a, animatorCondition, a.Length);
+		Array.Copy(b, 0, animatorCondition, a.Length, b.Length);
+
+		return animatorCondition;
+	}
+
+	private NativeArray<RTP.Transition> GenerateTransitionsToDestinationStateMachine(TransitionPrototype prototype,
+		AnimatorStateMachine stateMachine,
+		in UnsafeList<RTP.Parameter> allParams)
+	{
+		//	Generate transitions to every state connected with entry state
+		var bakedTransitions = new NativeList<RTP.Transition>(Allocator.Temp);
+		
+		for (var i = 0; i < stateMachine.entryTransitions.Length; ++i)
+		{
+			var entryTransition = stateMachine.entryTransitions[i];
+			var conditions = MergeConditions(prototype.Conditions, entryTransition.conditions);
+			var mod = prototype;
+			mod.DestinationState = entryTransition.destinationState;
+			mod.Conditions = conditions;
+
+			bakedTransitions.Add(GenerateTransitionDataBetweenStates(mod, allParams));
+		}
+
+		//	Add transition to the default state of target state machine with lowest priority
+		prototype.DestinationState = stateMachine.defaultState;
+		bakedTransitions.Add(GenerateTransitionDataBetweenStates(prototype, allParams));
+
+		return bakedTransitions.AsArray();
+	}
+
+	private NativeArray<RTP.Transition> GenerateTransitionsToExitState(TransitionPrototype prototype,
+		AnimatorStateMachine stateMachine,
+		in UnsafeList<RTP.Parameter> allParams)
+	{
+		var bakedTransitions = new NativeList<RTP.Transition>(Allocator.Temp);
+		
+		var parentStateMachine = m_StateMachineParents[stateMachine];
+		var transitions = parentStateMachine.GetStateMachineTransitions(stateMachine);
+		for (var i = 0; i < transitions.Length; ++i)
+		{
+			var transition = transitions[i];
+			var conditions = MergeConditions(prototype.Conditions, transition.conditions);
+
+			var mod = prototype;
+			mod.Conditions = conditions;
+			mod.DestinationState = transition.destinationState;
+			mod.DestinationStateMachine = transition.destinationStateMachine;
+			mod.Muted = transition.mute;
+			mod.Solo = transition.solo;
+			mod.Name = transition.name;
+
+			bakedTransitions.AddRange(GenerateControllerTransitionComputationData(mod, parentStateMachine, allParams).AsArray());
+		}
+		
+		//	Add transition to the default state of target state machine with lowest priority
+		var targetState = parentStateMachine == null ? stateMachine.defaultState : parentStateMachine.defaultState;
+		prototype.DestinationState = targetState;
+		bakedTransitions.Add(GenerateTransitionDataBetweenStates(prototype, allParams));
+
+		return bakedTransitions.AsArray();
+	}
+
+	private NativeList<RTP.Transition> GenerateControllerTransitionComputationData(TransitionPrototype prototype,
+		AnimatorStateMachine stateMachine,
 		in UnsafeList<RTP.Parameter> allParams)
 	{
 		//	Because exit and enter states of substatemachines can have several transitions with different conditions this function can generate several transitions
 		var bakedTransitions = new NativeList<RTP.Transition>(Allocator.Temp);
-		if (stateTransition.destinationState != null)
+		if (prototype.DestinationState != null)
 		{
-			var outT = GenerateTransitionDataBetweenStates(stateTransition, ownStateName, stateTransition.destinationState, stateTransition.conditions, allParams);
-			bakedTransitions.Add(outT);
+			bakedTransitions.Add(GenerateTransitionDataBetweenStates(prototype, allParams));
 		}
 		else
 		{
-			if (stateTransition.destinationStateMachine == null)
+			if (prototype.DestinationStateMachine == null)
 			{
-				//	This is exit state transition. Transition to parent state machine default state
-				//	If there is no parent statemachine then go to own statemachine default state
-				var targetState = parentStateMachine == null ? ourStateMachine.defaultState : parentStateMachine.defaultState;
-				var outToParentSm = GenerateTransitionDataBetweenStates(stateTransition, ownStateName, targetState, stateTransition.conditions, allParams);
-				bakedTransitions.Add(outToParentSm);
+				//	This is exit state transition.
+				//	If parent state machine is null, behavior exactly the same as destination state machine transition.
+				var parentStateMachine = m_StateMachineParents[stateMachine]; 
+				if (parentStateMachine == null)
+				{
+					var dstSmTransitions = GenerateTransitionsToDestinationStateMachine(prototype, stateMachine, allParams);
+					bakedTransitions.AddRange(dstSmTransitions);
+				}
+				//	Otherwise for parent state machine transitions separate "StateMachineTransitions" should be considered.
+				else
+				{
+					var exitStateTransitions = GenerateTransitionsToExitState(prototype, stateMachine, allParams);
+					bakedTransitions.AddRange(exitStateTransitions);
+				}
 			}
 			else
 			{
-				//	Generate transitions to every state connected with entry state
-				var conditionsArr = new List<AnimatorCondition>(stateTransition.conditions);
-				var initialConditionsLen = conditionsArr.Count;
-				for (var i = 0; i < stateTransition.destinationStateMachine.entryTransitions.Length; ++i)
-				{
-					conditionsArr.RemoveRange(initialConditionsLen, conditionsArr.Count - initialConditionsLen);
-					var e = stateTransition.destinationStateMachine.entryTransitions[i];
-					conditionsArr.AddRange(e.conditions);
-					var outEntryT = GenerateTransitionDataBetweenStates(stateTransition, ownStateName, e.destinationState, conditionsArr.ToArray(), allParams);
-					bakedTransitions.Add(outEntryT);
-				}
-
-				//	Add transition to the default state of target state machine with lowest priority
-				var outT = GenerateTransitionDataBetweenStates(stateTransition, ownStateName, stateTransition.destinationStateMachine.defaultState, stateTransition.conditions, allParams);
-				bakedTransitions.Add(outT);
+				var dstTransitions = GenerateTransitionsToDestinationStateMachine(prototype, prototype.DestinationStateMachine, allParams);
+				bakedTransitions.AddRange(dstTransitions);
 			}
 		}
 
@@ -366,18 +469,17 @@ public class AnimatorControllerBaker: Baker<Animator>
 		//	Hacky way to extract "Normalized Blend Values" prop
 		var propertyFlag = false;
 
-		using (var so = new SerializedObject(blendTree))
+		using (var serializedObject = new SerializedObject(blendTree))
 		{
-			var p = so.FindProperty("m_NormalizedBlendValues");
-			if (p != null) propertyFlag = p.boolValue;
+			var property = serializedObject.FindProperty("m_NormalizedBlendValues");
+			if (property != null) propertyFlag = property.boolValue;
 		}
 
 		return propertyFlag;
 	}
 
 	private RTP.State GenerateControllerStateComputationData(AnimatorState state,
-		AnimatorStateMachine ourStateMachine,
-		AnimatorStateMachine parentStateMachine,
+		AnimatorStateMachine stateMachine,
 		AnimatorControllerLayer layerOverriden,
 		List<int> allClipsHashCodes,
 		in UnsafeList<RTP.Parameter> allParams)
@@ -392,8 +494,9 @@ public class AnimatorControllerBaker: Baker<Animator>
 
 		for (var i = 0; i < state.transitions.Length; ++i)
 		{
-			var t = state.transitions[i];
-			var generatedTransitions = GenerateControllerTransitionComputationData(t, ourStateMachine, parentStateMachine, state.name, allParams);
+			var stateTransition = state.transitions[i];
+			var prototype = new TransitionPrototype(stateTransition, state.name);
+			var generatedTransitions = GenerateControllerTransitionComputationData(prototype, stateMachine, allParams);
 			foreach (var gt in generatedTransitions)
 				bakedState.Transitions.Add(gt);
 		}
@@ -445,9 +548,29 @@ public class AnimatorControllerBaker: Baker<Animator>
 		}
 	}
 
+	private Dictionary<AnimatorStateMachine, AnimatorStateMachine> CreateParentsStateMachineDictionary(AnimatorController controller)
+	{
+		var dictionary = new Dictionary<AnimatorStateMachine, AnimatorStateMachine>();
+		foreach (var controllerLayer in controller.layers)
+		{
+			FillParentsStateMachineDictionaryRecursively(controllerLayer.stateMachine, null, ref dictionary);	
+		}
+
+		return dictionary;
+	}
+
+	private void FillParentsStateMachineDictionaryRecursively(AnimatorStateMachine stateMachine, AnimatorStateMachine parentStateMachine, ref Dictionary<AnimatorStateMachine, AnimatorStateMachine> outDictionary)
+	{
+		if (stateMachine == null) return;
+		
+		outDictionary.Add(stateMachine, parentStateMachine);
+		foreach (var childStateMachine in stateMachine.stateMachines)
+		{
+			FillParentsStateMachineDictionaryRecursively(childStateMachine.stateMachine, stateMachine, ref outDictionary);
+		}
+	}
+
 	private bool GenerateControllerStateMachineComputationData(AnimatorStateMachine stateMachine,
-		AnimatorStateMachine parentStateMachine,
-		AnimatorControllerLayer layer,
 		AnimatorControllerLayer layerOverriden,
 		List<int> allClipsHashCodes,
 		ref UnsafeList<RTP.State> states,
@@ -456,26 +579,26 @@ public class AnimatorControllerBaker: Baker<Animator>
 	{
 		for (var k = 0; k < stateMachine.anyStateTransitions.Length; ++k)
 		{
-			var ast = stateMachine.anyStateTransitions[k];
-			var stateName = "Any State";
-			var generatedTransitions = GenerateControllerTransitionComputationData(ast, stateMachine, parentStateMachine, stateName, allParams);
-			foreach (var gt in generatedTransitions)
-				anyStateTransitions.Add(gt);
+			var transition = stateMachine.anyStateTransitions[k];
+			var prototype = new TransitionPrototype(transition, "Any State");
+			var generatedTransitions = GenerateControllerTransitionComputationData(prototype, stateMachine, allParams);
+			foreach (var generatedTransition in generatedTransitions)
+				anyStateTransitions.Add(generatedTransition);
 		}
 
 		FilterSoloAndMuteTransitions(ref anyStateTransitions);
 
 		for (var i = 0; i < stateMachine.states.Length; ++i)
 		{
-			var s = stateMachine.states[i];
-			var generatedState = GenerateControllerStateComputationData(s.state, stateMachine, parentStateMachine, layerOverriden, allClipsHashCodes, allParams);
+			var childAnimatorState = stateMachine.states[i];
+			var generatedState = GenerateControllerStateComputationData(childAnimatorState.state, stateMachine, layerOverriden, allClipsHashCodes, allParams);
 			states.Add(generatedState);
 		}
 
 		for (var j = 0; j < stateMachine.stateMachines.Length; ++j)
 		{
-			var sm = stateMachine.stateMachines[j];
-			GenerateControllerStateMachineComputationData(sm.stateMachine, stateMachine, layer, layerOverriden, allClipsHashCodes, ref states, ref anyStateTransitions, allParams);
+			var animatorStateMachine = stateMachine.stateMachines[j];
+			GenerateControllerStateMachineComputationData(animatorStateMachine.stateMachine, layerOverriden, allClipsHashCodes, ref states, ref anyStateTransitions, allParams);
 		}
 
 		return true;

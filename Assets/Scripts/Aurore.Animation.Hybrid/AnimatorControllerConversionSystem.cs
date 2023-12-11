@@ -72,6 +72,7 @@ public partial class AnimatorControllerConversionSystem: SystemBase
 		var startHash = controllersData[0].Hash;
 
 		using var jobHandles = new NativeList<JobHandle>(controllersData.Length, Allocator.Temp);
+		var blobUniqueIndices = new NativeList<int>(Allocator.Temp);
 
 		m_RigDefComponentLookup.Update(this);
 		
@@ -94,6 +95,7 @@ public partial class AnimatorControllerConversionSystem: SystemBase
 
 				var jobHandle = createBlobAssetsJob.Schedule();
 				jobHandles.Add(jobHandle);
+				blobUniqueIndices.Add(startIndex);
 
 				startHash = cd.Hash;
 				startIndex = i;
@@ -114,6 +116,9 @@ public partial class AnimatorControllerConversionSystem: SystemBase
 
 		createComponentDatasJob.ScheduleBatch(controllersData.Length, 32, combinedJh).Complete();
 
+		//	Register blob assets in store to prevent memory leaks
+		RegisterBlobAssetsInAssetStore(blobAssetsArr, blobUniqueIndices.AsArray());
+
 		ecb.Playback(EntityManager);
 		OnDestroy();
 
@@ -124,6 +129,20 @@ public partial class AnimatorControllerConversionSystem: SystemBase
 			Debug.Log($"=== [AnimatorControllerConversionSystem] END CONVERSION ===");
 		}
 #endif
+	}
+
+	private void RegisterBlobAssetsInAssetStore(NativeArray<AnimatorBlobAssets> blobAssets, NativeArray<int> blobUniqueIndices)
+	{
+		var bakingSystem = World.GetExistingSystemManaged<BakingSystem>();
+		var blobAssetStore = bakingSystem.BlobAssetStore;
+		for (var i = 0; i < blobUniqueIndices.Length; ++i)
+		{
+			var idx = blobUniqueIndices[i];
+			var animatorBlob = blobAssets[idx];
+			if (animatorBlob.ParametersPerfectHashTableBlob.IsCreated)
+				blobAssetStore.TryAdd(ref animatorBlob.ParametersPerfectHashTableBlob);
+			blobAssetStore.TryAdd(ref animatorBlob.ControllerBlob);
+		}
 	}
 
 	private void DebugLogging(AnimatorControllerBakerData a, int numDuplicates)
@@ -393,7 +412,8 @@ public partial class AnimatorControllerConversionSystem: SystemBase
 		internal static BlobAssetReference<ParameterPerfectHashTableBlob> CreateParametersPerfectHashTableBlob(in NativeArray<uint> hashesArr)
 		{
 			var hashesReinterpretedArr = hashesArr.Reinterpret<UIntPerfectHashed>();
-			PerfectHash<UIntPerfectHashed>.CreateMinimalPerfectHash(hashesReinterpretedArr, out var seedValues, out var shuffleIndices);
+			if (!PerfectHash<UIntPerfectHashed>.CreateMinimalPerfectHash(hashesReinterpretedArr, out var seedValues, out var shuffleIndices))
+				return default;
 
 			using var bb2 = new BlobBuilder(Allocator.Temp);
 			ref var ppb = ref bb2.ConstructRoot<ParameterPerfectHashTableBlob>();

@@ -61,8 +61,9 @@ public partial class SkinnedMeshConversionSystem : SystemBase
 		var startIndex = 0;
 		var startHash = skinnedMeshesData[0].Hash;
 
-		using var jobsArr = new NativeList<JobHandle>(skinnedMeshesData.Length, Allocator.Temp);
-		using var blobAssetsArr = new NativeArray<BlobAssetReference<SkinnedMeshInfoBlob>>(skinnedMeshesData.Length, Allocator.TempJob);
+		using var jobHandles = new NativeList<JobHandle>(skinnedMeshesData.Length, Allocator.Temp);
+		using var blobAssets = new NativeArray<BlobAssetReference<SkinnedMeshInfoBlob>>(skinnedMeshesData.Length, Allocator.TempJob);
+		var blobUniqueIndices = new NativeList<int>(Allocator.Temp);
 
 		for (var i = 1; i <= skinnedMeshesData.Length; ++i)
 		{
@@ -70,7 +71,7 @@ public partial class SkinnedMeshConversionSystem : SystemBase
 			if (rd.Hash != startHash)
 			{
 				var numDuplicates = i - startIndex;
-				var blobAssetsSlice = new NativeSlice<BlobAssetReference<SkinnedMeshInfoBlob>>(blobAssetsArr, startIndex, numDuplicates);
+				var blobAssetsSlice = new NativeSlice<BlobAssetReference<SkinnedMeshInfoBlob>>(blobAssets, startIndex, numDuplicates);
 				var refSkinnedMesh = skinnedMeshesData[startIndex];
 				var j = new CreateBlobAssetsJob
 				{
@@ -78,8 +79,9 @@ public partial class SkinnedMeshConversionSystem : SystemBase
 					OutBlobAssets = blobAssetsSlice,
 				};
 
-				var jh = j.Schedule();
-				jobsArr.Add(jh);
+				var jobHandle = j.Schedule();
+				jobHandles.Add(jobHandle);
+				blobUniqueIndices.Add(startIndex);
 
 				startHash = rd.Hash;
 				startIndex = i;
@@ -89,7 +91,7 @@ public partial class SkinnedMeshConversionSystem : SystemBase
 			}
 		}
 
-		var combinedJh = JobHandle.CombineDependencies(jobsArr.AsArray());
+		var combinedJh = JobHandle.CombineDependencies(jobHandles.AsArray());
 		using var ecb = new EntityCommandBuffer(Allocator.TempJob);
 
 		var animatedEntityRefLookup = GetComponentLookup<AnimatorEntityRefComponent>(true);
@@ -98,7 +100,7 @@ public partial class SkinnedMeshConversionSystem : SystemBase
 		{
 			ECB = ecb.AsParallelWriter(),
 			BakerData = skinnedMeshesData,
-			BlobAssets = blobAssetsArr,
+			BlobAssets = blobAssets,
 			AnimEntityRefLookup = animatedEntityRefLookup,
 #if AURORE_DEBUG
 			EnableLog = dc.logSkinnedMeshBaking
@@ -106,6 +108,9 @@ public partial class SkinnedMeshConversionSystem : SystemBase
 		};
 
 		createComponentDatasJob.ScheduleBatch(skinnedMeshesData.Length, 32, combinedJh).Complete();
+
+		//	Register blob assets in store to prevent memory leaks
+		RegisterBlobAssetsInAssetStore(blobAssets, blobUniqueIndices.AsArray());
 
 		ecb.Playback(EntityManager);
 
@@ -117,7 +122,19 @@ public partial class SkinnedMeshConversionSystem : SystemBase
 		}
 #endif
 	}
-	
+
+	private void RegisterBlobAssetsInAssetStore(NativeArray<BlobAssetReference<SkinnedMeshInfoBlob>> blobAssets, NativeArray<int> blobUniqueIndices)
+	{
+		var bakingSystem = World.GetExistingSystemManaged<BakingSystem>();
+		var blobAssetStore = bakingSystem.BlobAssetStore;
+		for (var i = 0; i < blobUniqueIndices.Length; ++i)
+		{
+			var idx = blobUniqueIndices[i];
+			var skinnedMeshInfoBlobReference = blobAssets[idx];
+			blobAssetStore.TryAdd(ref skinnedMeshInfoBlobReference);
+		}
+	}
+
 	[BurstCompile]
 	public struct CreateBlobAssetsJob: IJob
 	{

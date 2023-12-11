@@ -42,7 +42,7 @@ public partial class BoneVisualizationSystem: SystemBase
 		vtx[3] = new Vector3(0, 0, -1);
 		vtx[4] = new Vector3(0, 0, 1);
 
-		for (int i = 0; i < vtx.Length; ++i)
+		for (var i = 0; i < vtx.Length; ++i)
 			vtx[i] *= 0.1f;
 
 		var triIdx = new int[]
@@ -81,9 +81,10 @@ public partial class BoneVisualizationSystem: SystemBase
 
 	private Material CreateBoneRendererMaterial()
 	{
-		var mat = new Material(Shader.Find("BoneRenderer"));
-		mat.enableInstancing = true;
-		return mat;
+		return new Material(Shader.Find("BoneRenderer"))
+		{
+			enableInstancing = true
+		};
 	}
 
 	protected override void OnCreate()
@@ -96,13 +97,14 @@ public partial class BoneVisualizationSystem: SystemBase
 		m_BoneDataBufferShaderID = Shader.PropertyToID("boneDataBuf");
 
 		var ecb0 = new EntityQueryBuilder(Allocator.Temp)
-		.WithAll
-		<RigDefinitionComponent,
-		#if !AURORE_DEBUG
+			.WithAll<RigDefinitionComponent,
+#if !AURORE_DEBUG
 			BoneVisualizationComponent,
-		#endif
+#endif
 			LocalTransform>();
 		m_BoneVisualizeQuery = GetEntityQuery(ecb0);
+
+		m_BoneGPUData = new NativeList<BoneGPUData>(Allocator.Persistent);
 
 		RequireForUpdate(m_BoneVisualizeQuery);
 	}
@@ -112,17 +114,15 @@ public partial class BoneVisualizationSystem: SystemBase
 		m_BoneGPUDataCb?.Release();
 	}
 
-	private void PrepareGPUDataBuf(int totalBoneCount)
+	private JobHandle PrepareGPUDataBuf(NativeList<BoneTransform> bonesBuffer, JobHandle dependsOn)
 	{
-		if (!m_BoneGPUData.IsCreated || m_BoneGPUData.Capacity < totalBoneCount)
+		var resizeDataJob = new ResizeDataBuffersJob
 		{
-			if (!m_BoneGPUData.IsCreated)
-			{
-				m_BoneGPUData = new NativeList<BoneGPUData>(totalBoneCount, Allocator.Persistent);
-			}
-			m_BoneGPUData.Capacity = totalBoneCount;
-		}
-		m_BoneGPUData.Clear();
+			BoneTransforms = bonesBuffer,
+			BoneGPUData = m_BoneGPUData
+		};
+
+		return resizeDataJob.Schedule(dependsOn);
 	}
 
 	private void RenderBones()
@@ -149,10 +149,10 @@ public partial class BoneVisualizationSystem: SystemBase
 		var entityArr = m_BoneVisualizeQuery.ToEntityListAsync(WorldUpdateAllocator, Dependency, out var entityArrJh);
 		var rigDefArr = m_BoneVisualizeQuery.ToComponentDataListAsync<RigDefinitionComponent>(WorldUpdateAllocator, Dependency, out var rigDefArrJh);
 
-		var combinedJh = JobHandle.CombineDependencies(entityArrJh, rigDefArrJh);
-
 		var runtimeData = SystemAPI.GetSingleton<RuntimeAnimationData>();
-		PrepareGPUDataBuf(runtimeData.AnimatedBonesBuffer.Length);
+		var prepareDataJH = PrepareGPUDataBuf(runtimeData.AnimatedBonesBuffer, Dependency);
+
+		var combinedJh = JobHandle.CombineDependencies(entityArrJh, rigDefArrJh, prepareDataJH);
 
 #if AURORE_DEBUG
 		SystemAPI.TryGetSingleton<DebugConfigurationComponent>(out var dcc);
@@ -161,7 +161,7 @@ public partial class BoneVisualizationSystem: SystemBase
 #endif
 
 		var boneVisualizeComponentLookup = SystemAPI.GetComponentLookup<BoneVisualizationComponent>(true);
-		var prepareRenderDataJob = new PrepareRenderDataJob()
+		var prepareRenderDataJob = new PrepareRenderDataJob
 		{
 			BoneGPUData = m_BoneGPUData.AsParallelWriter(),
 			EntityToDataOffsetMap = runtimeData.EntityToDataOffsetMap,
@@ -181,20 +181,14 @@ public partial class BoneVisualizationSystem: SystemBase
 	[BurstCompile]
 	private struct PrepareRenderDataJob: IJobParallelForDefer
 	{
-		[ReadOnly]
-		public NativeList<Entity> EntityArr;
-		[ReadOnly]
-		public NativeList<RigDefinitionComponent> RigDefArr;
-		[ReadOnly]
-		public NativeList<BoneTransform> BonePoses;
-		[ReadOnly]
-		public NativeParallelHashMap<Entity, int2> EntityToDataOffsetMap;
-		[ReadOnly]
-		public ComponentLookup<BoneVisualizationComponent> BoneVisComponentLookup;
+		[ReadOnly] public NativeList<Entity> EntityArr;
+		[ReadOnly] public NativeList<RigDefinitionComponent> RigDefArr;
+		[ReadOnly] public NativeList<BoneTransform> BonePoses;
+		[ReadOnly] public NativeParallelHashMap<Entity, int2> EntityToDataOffsetMap;
+		[ReadOnly] public ComponentLookup<BoneVisualizationComponent> BoneVisComponentLookup;
 		public DebugConfigurationComponent DebugConfig;
 
-		[WriteOnly]
-		public NativeList<BoneGPUData>.ParallelWriter BoneGPUData;
+		[WriteOnly] public NativeList<BoneGPUData>.ParallelWriter BoneGPUData;
 
 		public void Execute(int i)
 		{
@@ -206,7 +200,7 @@ public partial class BoneVisualizationSystem: SystemBase
 			{
 				if (!DebugConfig.VisualizeAllRigs) return;
 
-				bvc = new BoneVisualizationComponent()
+				bvc = new BoneVisualizationComponent
 				{
 					ColorLines = DebugConfig.ColorLines,
 					ColorTri = DebugConfig.ColorTri
@@ -215,7 +209,7 @@ public partial class BoneVisualizationSystem: SystemBase
 
 			var len = bt.Length;
         
-			for (int l = rd.RigBlob.Value.RootBoneIndex; l < len; ++l)
+			for (var l = rd.RigBlob.Value.RootBoneIndex; l < len; ++l)
 			{
 				var bgd = new BoneGPUData();
 				ref var rb = ref rd.RigBlob.Value.Bones[l];
@@ -231,6 +225,24 @@ public partial class BoneVisualizationSystem: SystemBase
 				if (math.any(math.abs(bgd.Pos0 - bgd.Pos1)))
 					BoneGPUData.AddNoResize(bgd);
 			}
+		}
+	}
+
+	private struct ResizeDataBuffersJob: IJob
+	{
+		public NativeList<BoneGPUData> BoneGPUData;
+		public NativeList<BoneTransform> BoneTransforms;
+
+		public void Execute()
+		{
+			var totalBoneCount = BoneTransforms.Length;
+
+			if (BoneGPUData.Capacity < totalBoneCount)
+			{
+				BoneGPUData.Capacity = totalBoneCount;
+			}
+
+			BoneGPUData.Clear();
 		}
 	}
 }

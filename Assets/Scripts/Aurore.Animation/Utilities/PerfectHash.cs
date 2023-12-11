@@ -3,25 +3,30 @@ using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Entities;
 using Unity.Mathematics;
+using UnityEngine;
 using UnityEngine.Assertions;
 using Hash128 = Unity.Entities.Hash128;
 using Random = Unity.Mathematics.Random;
 	
 public interface IPerfectHashedValue
 {
-	uint HashFunc(int prime, int k);
+	uint HashFunc(int prime, int key);
+
+	uint InitialHash();
 }
 	
 public struct UIntPerfectHashed: IPerfectHashedValue
 {
 	public uint Value;
 
-	public UIntPerfectHashed(uint v)
+	public UIntPerfectHashed(uint value)
 	{
-		Value = v;
+		Value = value;
 	}
 
-	public uint HashFunc(int prime, int k) => (uint)(k * Value % prime);
+	public uint HashFunc(int prime, int key) => (uint)(key * Value % prime);
+
+	public uint InitialHash() => Value;
 
 	public static implicit operator UIntPerfectHashed(uint v) => new UIntPerfectHashed(v);
 }
@@ -30,37 +35,36 @@ public struct Hash128PerfectHashed: IPerfectHashedValue
 {
 	public Hash128 Value;
 
-	public Hash128PerfectHashed(Hash128 v)
+	public Hash128PerfectHashed(Hash128 value)
 	{
-		Value = v;
+		Value = value;
 	} 
 
-	public uint HashFunc(int prime, int k)
-	{
-		return (uint)(k * math.hash(Value.Value) % prime);
-	}
+	public uint HashFunc(int prime, int key) => (uint)(key * math.hash(Value.Value) % prime);
+
+	public uint InitialHash() => math.hash(Value.Value);
 
 	public static implicit operator Hash128PerfectHashed(Hash128 v) => new Hash128PerfectHashed(v);
 }
 
 internal static class PerfectHashPrimes
 {
-	public static NativeArray<int2> CreatePerfectHashPrimes(int numPrimes = 0xff)
+	public static NativeArray<int2> CreatePerfectHashPrimes(int numberOfPrimes = 0xffff)
 	{
-		var rv = new NativeArray<int2>(numPrimes, Allocator.Temp);
-		var rng = new Random((uint)numPrimes);
-		var currentPrime = PerfectHash<UIntPerfectHashed>.InitialPrime;
-		for (var i = 0; i < numPrimes; ++i)
+		var hashPrimesArray = new NativeArray<int2>(numberOfPrimes, Allocator.Temp);
+		var randomGenerator = new Random((uint)numberOfPrimes);
+		var currentPrimeNumber = PerfectHash<UIntPerfectHashed>.InitialPrime;
+
+		for (var i = 0; i < numberOfPrimes; ++i)
 		{
-			currentPrime = NextPrime(currentPrime + 1);
-			var v = new int2(currentPrime, (int)(rng.NextUInt() & 0x7fffffff));
-			rv[i] = v;
+			currentPrimeNumber = NextPrime(currentPrimeNumber + 1);
+			hashPrimesArray[i] = new int2(currentPrimeNumber, (int)(randomGenerator.NextUInt() & 0x7fffffff));
 		}
 
-		return rv;
+		return hashPrimesArray;
 	}
 
-	static bool IsPrime(int p)
+	private static bool IsPrime(int p)
 	{
 		if (p % 2 == 0) return false;
 		for (var d = 3; d * d <= p; d += 2)
@@ -70,7 +74,7 @@ internal static class PerfectHashPrimes
 		return true;
 	}
 
-	static int NextPrime(int p)
+	private static int NextPrime(int p)
 	{
 		if (p <= 2) return 2;
 		for (var l = p | 1; ; l += 2)
@@ -82,72 +86,76 @@ internal static class PerfectHashPrimes
 public class PerfectHash<T> where T: unmanaged, IPerfectHashedValue
 {
 	public const int InitialPrime = 100003;
-	public const int InitialRng = 1931387198;
 
-	public static void CreateMinimalPerfectHash(in NativeArray<T> inArr, out NativeList<int2> seedValues, out NativeList<int> shuffleIndices)
+	public static bool CreateMinimalPerfectHash(in NativeArray<T> dataArray, out NativeList<int2> seedValues, out NativeList<int> shuffleIndices)
 	{
-		var primes = PerfectHashPrimes.CreatePerfectHashPrimes();
-		var sz = inArr.Length;
+		var primesArray = PerfectHashPrimes.CreatePerfectHashPrimes();
+		var dataSize = dataArray.Length;
 
-		Span<int> buckets = stackalloc int[sz * sz];
-		Span<int2> bucketsCount = stackalloc int2[sz];
+		var buckets = new NativeArray<int>(dataSize * dataSize, Allocator.Temp).AsSpan();
+		var bucketsCount = new NativeArray<int2>(dataSize, Allocator.Temp).AsSpan();
+		var hashesArray = new NativeArray<uint>(dataSize, Allocator.Temp);
+		seedValues = new NativeList<int2>(dataSize, Allocator.Temp);
+		shuffleIndices = new NativeList<int>(dataSize, Allocator.Temp);
+
 		for (var l = 0; l < bucketsCount.Length; ++l)
 		{
 			bucketsCount[l] = new int2(l, 0);
 		}
 
-		for (int i = 0; i < sz; ++i)
+		for (var i = 0; i < dataSize; ++i)
 		{
-			var v = inArr[i];
-			var h = v.HashFunc(InitialPrime, InitialRng);
-			var k = (int)(h % sz);
-			buckets[k * sz + bucketsCount[k].y++] = i;
+			var v = dataArray[i];
+			var h = v.InitialHash();
+			var k = (int)(h % dataSize);
+			buckets[k * dataSize + bucketsCount[k].y++] = i;
+
+			hashesArray[i] = h;
 		}
 
+		//	Check for uniqueness of value hashes
+		if (!CheckForUniqueness(hashesArray)) return false;
+
 		//	Simple bubble sort
-		for (int i = 0; i < bucketsCount.Length - 1; ++i)
+		for (var i = 0; i < bucketsCount.Length - 1; ++i)
 		{
-			for (int l = 0; l < bucketsCount.Length - i - 1; ++l)
+			for (var l = 0; l < bucketsCount.Length - i - 1; ++l)
 			{
 				if (bucketsCount[l].y < bucketsCount[l + 1].y)
 				{
-					var t = bucketsCount[l];
-					bucketsCount[l] = bucketsCount[l + 1];
-					bucketsCount[l + 1] = t;
+					(bucketsCount[l], bucketsCount[l + 1]) = (bucketsCount[l + 1], bucketsCount[l]);
 				}
 			}
 		}
 
-		Span<int> freeList = stackalloc int[sz];
-		seedValues = new NativeList<int2>(sz, Allocator.Temp);
-		shuffleIndices = new NativeList<int>(sz, Allocator.Temp);
+		var freeList = new NativeArray<int>(dataSize, Allocator.Temp).AsSpan();
 
-		var sv = new int2(-sz, 0);
-		for (int i = 0; i < sz; ++i)
+		var seedValue = new int2(-dataSize, 0);
+		for (var i = 0; i < dataSize; ++i)
 		{
-			seedValues.Add(sv);
+			seedValues.Add(seedValue);
 			shuffleIndices.Add(-1);
 		}
 
-		int bucketIndex = 0;
-		for (; bucketIndex < bucketsCount.Length && bucketsCount[bucketIndex].y > 1; ++bucketIndex)
+		var bucketIdx = 0;
+		for (; bucketIdx < bucketsCount.Length && bucketsCount[bucketIdx].y > 1; ++bucketIdx)
 		{
 			var seed = 0;
 			var l = 0;
-			var bucketInfo = bucketsCount[bucketIndex];
+			var bucketInfo = bucketsCount[bucketIdx];
 
 			//	Skip buckets with less than two items
 			ResetFreeList(ref freeList);
 
-			var maxNumIterations = 0xffff;
+			const int maxNumIterations = 0xffff;
 
 			int2 primeAndRnd = 0;
 			while (l < bucketInfo.y && seed < maxNumIterations)
 			{
-				var itemIndex = buckets[bucketInfo.x * sz + l];
-				var item = inArr[itemIndex];
-				primeAndRnd = primes[seed];
-				var slotIndex = (int)(item.HashFunc(primeAndRnd.x, primeAndRnd.y) % sz);
+				var itemIndex = buckets[bucketInfo.x * dataSize + l];
+				var item = dataArray[itemIndex];
+				primeAndRnd = primesArray[seed];
+				var slotIndex = (int)(item.HashFunc(primeAndRnd.x, primeAndRnd.y) % dataSize);
 				if (freeList[slotIndex] >= 0 || shuffleIndices[slotIndex] >= 0)
 				{
 					ResetFreeList(ref freeList);
@@ -164,7 +172,7 @@ public class PerfectHash<T> where T: unmanaged, IPerfectHashedValue
 			Assert.IsTrue(seed < maxNumIterations);
 
 			seedValues[bucketInfo.x] = primeAndRnd;
-			for (int k = 0; k < freeList.Length; ++k)
+			for (var k = 0; k < freeList.Length; ++k)
 			{
 				var f = freeList[k];
 				if (f < 0) continue;
@@ -174,51 +182,66 @@ public class PerfectHash<T> where T: unmanaged, IPerfectHashedValue
 		}
 
 		//	Add buckets with one element
-		for (int i = bucketIndex; i < bucketsCount.Length && bucketsCount[i].y > 0; ++i)
+		for (var i = bucketIdx; i < bucketsCount.Length && bucketsCount[i].y > 0; ++i)
 		{
 			var bucketInfo = bucketsCount[i];
-			var l = buckets[bucketInfo.x * sz];
+			var bucketItemIndex = buckets[bucketInfo.x * dataSize];
 
 			var freeSlotIndex = shuffleIndices.IndexOf(-1);
 			var seedVal = new int2(-freeSlotIndex - 1, 0);
 			seedValues[bucketInfo.x] = seedVal;
 			Assert.IsTrue(shuffleIndices[freeSlotIndex] == -1);
-			shuffleIndices[freeSlotIndex] = l;
+			shuffleIndices[freeSlotIndex] = bucketItemIndex;
 		}
+
+		return true;
 	}
 
-	public static unsafe int QueryPerfectHashTable(in NativeList<int2> t, T h)
+	private static bool CheckForUniqueness(NativeArray<uint> hashesArray)
 	{
-		var tablePtr = t.GetUnsafePtr();
-		var seedTableAsArr = new Span<int2>(tablePtr, t.Length);
-		var paramIdx = QueryPerfectHashTable(seedTableAsArr, h);
+		var origCount = hashesArray.Length;
+		hashesArray.Sort();
+		var uniqueCount = hashesArray.Unique();
+
+		if (origCount > uniqueCount)
+		{
+			Debug.LogError($"Input values do not produce unique hashes. Check input array for duplicated values. Creation of perfect hash table is failed!");
+			return false;
+		}
+
+		return true;
+	}
+
+	public static unsafe int QueryPerfectHashTable(in NativeList<int2> seedTable, T hashedValue)
+	{
+		var tablePtr = seedTable.GetUnsafePtr();
+		var seedTableArray = new Span<int2>(tablePtr, seedTable.Length);
+		var paramIdx = QueryPerfectHashTable(seedTableArray, hashedValue);
 		return paramIdx;
 	}
 
-	public static unsafe int QueryPerfectHashTable(ref BlobArray<int2> t, T h)
+	public static unsafe int QueryPerfectHashTable(ref BlobArray<int2> seedTable, T hashedValue)
 	{
-		var tablePtr = t.GetUnsafePtr();
-		var seedTableAsArr = new Span<int2>(tablePtr, t.Length);
-		var paramIdx = QueryPerfectHashTable(seedTableAsArr, h);
+		var tablePtr = seedTable.GetUnsafePtr();
+		var seedTableArray = new Span<int2>(tablePtr, seedTable.Length);
+		var paramIdx = QueryPerfectHashTable(seedTableArray, hashedValue);
 		return paramIdx;
 	}
 
-	public static int QueryPerfectHashTable(ReadOnlySpan<int2> t, T h)
+	public static int QueryPerfectHashTable(ReadOnlySpan<int2> seedTable, T hashedValue)
 	{
-		var h0 = h.HashFunc(InitialPrime, InitialRng);
-		var i0 = (int)(h0 % t.Length);
-		var d = t[i0];
-		if (d.x < 0)
-			return -d.x - 1;
+		var initialHash = hashedValue.InitialHash();
+		var initialIdx = (int)(initialHash % seedTable.Length);
+		var displacement = seedTable[initialIdx];
+		if (displacement.x < 0) return -displacement.x - 1;
 
-		var h1 = h.HashFunc(d.x, d.y);
-		var i1 = (int)(h1 % t.Length);
-		return i1;
+		var hashedIdx = hashedValue.HashFunc(displacement.x, displacement.y);
+		return (int)(hashedIdx % seedTable.Length);
 	}
 
 	static void ResetFreeList(ref Span<int> freeList)
 	{
-		for (int k = 0; k < freeList.Length; ++k)
+		for (var k = 0; k < freeList.Length; ++k)
 			freeList[k] = -1;
 	}
 }

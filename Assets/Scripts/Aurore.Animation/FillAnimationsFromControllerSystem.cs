@@ -18,27 +18,27 @@ public partial struct FillAnimationsFromControllerSystem: ISystem
 	private EntityTypeHandle m_EntityTypeHandle;
 
 	[BurstCompile]
-	public void OnCreate(ref SystemState ss)
+	public void OnCreate(ref SystemState state)
 	{
 		var builder = new EntityQueryBuilder(Allocator.Temp)
-			.WithAllRW<AnimatorControllerLayerComponent>()
-			.WithAllRW<AnimationToProcessComponent>();
-		m_FillAnimationsBufferQuery = ss.GetEntityQuery(builder);
+			.WithAll<AnimatorControllerLayerComponent, AnimationToProcessComponent>();
 
-		m_ControllerLayersBufferHandle = ss.GetBufferTypeHandle<AnimatorControllerLayerComponent>();
-		m_ControllerParametersBufferHandle = ss.GetBufferTypeHandle<AnimatorControllerParameterComponent>();
-		m_AnimationToProcessBufferHandle = ss.GetBufferTypeHandle<AnimationToProcessComponent>();
+		m_FillAnimationsBufferQuery = state.GetEntityQuery(builder);
+
+		m_ControllerLayersBufferHandle = state.GetBufferTypeHandle<AnimatorControllerLayerComponent>(true);
+		m_ControllerParametersBufferHandle = state.GetBufferTypeHandle<AnimatorControllerParameterComponent>(true);
+		m_AnimationToProcessBufferHandle = state.GetBufferTypeHandle<AnimationToProcessComponent>();
 	}
 
 	[BurstCompile]
-	public void OnUpdate(ref SystemState ss)
+	public void OnUpdate(ref SystemState state)
 	{
-		m_ControllerLayersBufferHandle.Update(ref ss);
-		m_ControllerParametersBufferHandle.Update(ref ss);
-		m_AnimationToProcessBufferHandle.Update(ref ss);
-		m_EntityTypeHandle.Update(ref ss);
+		m_ControllerLayersBufferHandle.Update(ref state);
+		m_ControllerParametersBufferHandle.Update(ref state);
+		m_AnimationToProcessBufferHandle.Update(ref state);
+		m_EntityTypeHandle.Update(ref state);
 
-		var fillAnimationsBufferJob = new FillAnimationsBufferJob()
+		var fillAnimationsBufferJob = new FillAnimationsBufferJob
 		{
 			ControllerLayersBufferHandle = m_ControllerLayersBufferHandle,
 			ControllerParametersBufferHandle = m_ControllerParametersBufferHandle,
@@ -46,17 +46,18 @@ public partial struct FillAnimationsFromControllerSystem: ISystem
 			EntityTypeHandle = m_EntityTypeHandle,
 		};
 
-		ss.Dependency = fillAnimationsBufferJob.ScheduleParallel(m_FillAnimationsBufferQuery, ss.Dependency);
+		state.Dependency = fillAnimationsBufferJob.ScheduleParallel(m_FillAnimationsBufferQuery, state.Dependency);
 	}
 	
 	[BurstCompile]
 	private partial struct FillAnimationsBufferJob: IJobChunk
 	{
-		public BufferTypeHandle<AnimatorControllerLayerComponent> ControllerLayersBufferHandle;
-		public BufferTypeHandle<AnimatorControllerParameterComponent> ControllerParametersBufferHandle;
-		public BufferTypeHandle<AnimationToProcessComponent> AnimationToProcessBufferHandle;
+		[ReadOnly] public BufferTypeHandle<AnimatorControllerLayerComponent> ControllerLayersBufferHandle;
+		[ReadOnly] public BufferTypeHandle<AnimatorControllerParameterComponent> ControllerParametersBufferHandle;
 		[ReadOnly] public EntityTypeHandle EntityTypeHandle;
 	
+		public BufferTypeHandle<AnimationToProcessComponent> AnimationToProcessBufferHandle;
+
 		public void Execute(in ArchetypeChunk chunk, int unfilteredChunkIndex, bool useEnabledMask, in v128 chunkEnabledMask)
 		{
 			var layerBuffers = chunk.GetBufferAccessor(ref ControllerLayersBufferHandle);
@@ -68,70 +69,69 @@ public partial struct FillAnimationsFromControllerSystem: ISystem
 	
 			while (cee.NextEntityIndex(out var i))
 			{
-				var layers = layerBuffers[i];
-				var parameters = parameterBuffers.Length > 0 ? parameterBuffers[i] : default;
-				var e = entities[i];
+				var layers = layerBuffers[i].AsNativeArray();
+				var parameters = parameterBuffers.Length > 0 ? parameterBuffers[i].AsNativeArray() : default;
+				var entity = entities[i];
 	
 				var animsBuf = animationsToProcessBuffers[i];
 	
-				AddAnimationsForEntity(ref animsBuf, layers, e, parameters);
+				AddAnimationsForEntity(ref animsBuf, layers, entity, parameters);
 			}
 		}
 
-		private void AnimationsPostSetup(Span<AnimationToProcessComponent> animations, ref LayerBlob lb, int layerIndex, float weightMultiplier, float layerWeight)
+		private void AnimationsPostSetup(Span<AnimationToProcessComponent> animations, ref LayerBlob layer, int layerIndex, float weightMultiplier, float layerWeight)
 		{
 			//	Set blending mode and adjust animations weight according to layer weight
-			for (int k = 0; k < animations.Length; ++k)
+			for (var k = 0; k < animations.Length; ++k)
 			{
-				var a = animations[k];
-				a.BlendMode = lb.BlendingMode;
-				a.LayerWeight = layerWeight;
-				a.LayerIndex = layerIndex;
-				a.Weight *= weightMultiplier;
-				if (lb.AvatarMask.Hash.IsValid)
-					a.AvatarMask = ExternalBlobPtr<AvatarMaskBlob>.Create(ref lb.AvatarMask);
-				animations[k] = a;
+				var animation = animations[k];
+				animation.BlendMode = layer.BlendingMode;
+				animation.LayerWeight = layerWeight;
+				animation.LayerIndex = layerIndex;
+				animation.Weight *= weightMultiplier;
+				if (layer.AvatarMask.Hash.IsValid)
+					animation.AvatarMask = ExternalBlobPtr<AvatarMaskBlob>.Create(ref layer.AvatarMask);
+				animations[k] = animation;
 			}
 		}
 
 		private unsafe void AddAnimationsForEntity(ref DynamicBuffer<AnimationToProcessComponent> animations,
-			in DynamicBuffer<AnimatorControllerLayerComponent> aclc,
+			in NativeArray<AnimatorControllerLayerComponent> runtimeLayers,
 			Entity deformedEntity,
-			in DynamicBuffer<AnimatorControllerParameterComponent> runtimeParams)
+			in NativeArray<AnimatorControllerParameterComponent> runtimeParams)
 		{
 			if (deformedEntity == Entity.Null) return;
 	
 			animations.Clear();
 	
-			for (int i = 0; i < aclc.Length; ++i)
+			for (var i = 0; i < runtimeLayers.Length; ++i)
 			{
 				var animationCurIndex = animations.Length;
 	
-				ref var l = ref aclc.ElementAt(i);
-				ref var cb = ref l.Controller;
+				var runtimeLayer = runtimeLayers[i];
+				ref var cb = ref runtimeLayer.Controller;
 				ref var lb = ref cb.Value.Layers[i];
-				if (l.Weight == 0 || l.Rtd.SrcState.Id < 0)
+				if (runtimeLayer.Weight == 0 || runtimeLayer.Rtd.SrcState.Id < 0)
 					continue;
 	
-				ref var srcStateBlob = ref lb.States[l.Rtd.SrcState.Id];
+				ref var srcStateBlob = ref lb.States[runtimeLayer.Rtd.SrcState.Id];
 	
 				var srcStateWeight = 1.0f;
 				var dstStateWeight = 0.0f;
 	
-				if (l.Rtd.ActiveTransition.Id >= 0)
+				if (runtimeLayer.Rtd.ActiveTransition.Id >= 0)
 				{
-					ref var transitionBlob = ref srcStateBlob.Transitions[l.Rtd.ActiveTransition.Id];
-					dstStateWeight = l.Rtd.ActiveTransition.NormalizedDuration;
+					dstStateWeight = runtimeLayer.Rtd.ActiveTransition.NormalizedDuration;
 					srcStateWeight = (1 - dstStateWeight);
 				}
 	
-				var srcStateTime = GetDurationTime(ref srcStateBlob, runtimeParams, l.Rtd.SrcState.NormalizedDuration);
+				var srcStateTime = GetDurationTime(ref srcStateBlob, runtimeParams, runtimeLayer.Rtd.SrcState.NormalizedDuration);
 	
 				var dstStateAnimCount = 0;
-				if (l.Rtd.DstState.Id >= 0)
+				if (runtimeLayer.Rtd.DstState.Id >= 0)
 				{
-					ref var dstStateBlob = ref lb.States[l.Rtd.DstState.Id];
-					var dstStateTime = GetDurationTime(ref dstStateBlob, runtimeParams, l.Rtd.DstState.NormalizedDuration);
+					ref var dstStateBlob = ref lb.States[runtimeLayer.Rtd.DstState.Id];
+					var dstStateTime = GetDurationTime(ref dstStateBlob, runtimeParams, runtimeLayer.Rtd.DstState.NormalizedDuration);
 					dstStateAnimCount = AddMotionForEntity(ref animations, ref dstStateBlob.Motion, runtimeParams, 1, dstStateTime);
 				}
 				var srcStateAnimCount = AddMotionForEntity(ref animations, ref srcStateBlob.Motion, runtimeParams, 1, srcStateTime);
@@ -145,92 +145,95 @@ public partial struct FillAnimationsFromControllerSystem: ISystem
 				dstStateWeight = math.select(1, dstStateWeight, srcStateAnimCount > 0);
 				srcStateWeight = math.select(1, srcStateWeight, dstStateAnimCount > 0);
 	
-				AnimationsPostSetup(dstAnimsSpan, ref lb, i, dstStateWeight, dstLayerMultiplier * l.Weight);
-				AnimationsPostSetup(srcAnimsSpan, ref lb, i, srcStateWeight, srcLayerMultiplier * l.Weight);
+				AnimationsPostSetup(dstAnimsSpan, ref lb, i, dstStateWeight, dstLayerMultiplier * runtimeLayer.Weight);
+				AnimationsPostSetup(srcAnimsSpan, ref lb, i, srcStateWeight, srcLayerMultiplier * runtimeLayer.Weight);
 			}
 		}
 
 		private void AddAnimationForEntity(ref DynamicBuffer<AnimationToProcessComponent> outAnims, ref MotionBlob mb, float weight, float normalizedStateTime)
 		{
-			var atp = new AnimationToProcessComponent();
+			var animation = new AnimationToProcessComponent();
 	
 			if (mb.AnimationBlob.IsValid)
-				atp.Animation = ExternalBlobPtr<AnimationClipBlob>.Create(ref mb.AnimationBlob);
+				animation.Animation = ExternalBlobPtr<AnimationClipBlob>.Create(ref mb.AnimationBlob);
 	
-			atp.Weight = weight;
-			atp.Time = normalizedStateTime;
-			outAnims.Add(atp);
+			animation.Weight = weight;
+			animation.Time = normalizedStateTime;
+			outAnims.Add(animation);
 		}
 
-		private void AddMotionsFromBlendtree(in NativeList<MotionIndexAndWeight> miws,
+		private void AddMotionsFromBlendtree(in NativeList<MotionIndexAndWeight> motionIndexAndWeights,
 			ref DynamicBuffer<AnimationToProcessComponent> outAnims,
-			in DynamicBuffer<AnimatorControllerParameterComponent> runtimeParams,
+			in NativeArray<AnimatorControllerParameterComponent> runtimeParams,
 			ref BlobArray<ChildMotionBlob> motions,
 			float weight,
 			float normalizedStateTime)
 		{
-			for (int i = 0; i < miws.Length; ++i)
+			for (var i = 0; i < motionIndexAndWeights.Length; ++i)
 			{
-				var miw = miws[i];
-				ref var m = ref motions[miw.MotionIndex];
-				AddMotionForEntity(ref outAnims, ref m.Motion, runtimeParams, weight * miw.Weight, normalizedStateTime);
+				var miw = motionIndexAndWeights[i];
+				ref var childMotion = ref motions[miw.MotionIndex];
+				AddMotionForEntity(ref outAnims, ref childMotion.Motion, runtimeParams, weight * miw.Weight, normalizedStateTime);
 			}
 		}
 
 		private int AddMotionForEntity(ref DynamicBuffer<AnimationToProcessComponent> outAnims,
-			ref MotionBlob mb,
-			in DynamicBuffer<AnimatorControllerParameterComponent> runtimeParams,
+			ref MotionBlob motion,
+			in NativeArray<AnimatorControllerParameterComponent> runtimeParams,
 			float weight,
 			float normalizedStateTime)
 		{
 			var startLen = outAnims.Length;
 			var blendTreeMotionsAndWeights = new NativeList<MotionIndexAndWeight>(Allocator.Temp);
 	
-			switch (mb.MotionType)
+			switch (motion.MotionType)
 			{
 				case MotionBlob.Type.None:
 					break;
 				case MotionBlob.Type.AnimationClip:
-					AddAnimationForEntity(ref outAnims, ref mb, weight, normalizedStateTime);
+					AddAnimationForEntity(ref outAnims, ref motion, weight, normalizedStateTime);
 					break;
 				case MotionBlob.Type.BlendTreeDirect:
-					blendTreeMotionsAndWeights = AnimatorControllerJob.StateMachineProcessJob.GetBlendTreeDirectCurrentMotions(ref mb, runtimeParams);
+					blendTreeMotionsAndWeights = AnimatorControllerJob.StateMachineProcessJob.GetBlendTreeDirectCurrentMotions(ref motion, runtimeParams);
 					break;
 				case MotionBlob.Type.BlendTree1D:
-					blendTreeMotionsAndWeights = AnimatorControllerJob.StateMachineProcessJob.GetBlendTree1DCurrentMotions(ref mb, runtimeParams);
+					blendTreeMotionsAndWeights = AnimatorControllerJob.StateMachineProcessJob.GetBlendTree1DCurrentMotions(ref motion, runtimeParams);
 					break;
 				case MotionBlob.Type.BlendTree2DSimpleDirectional:
-					blendTreeMotionsAndWeights = AnimatorControllerJob.StateMachineProcessJob.GetBlendTree2DSimpleDirectionalCurrentMotions(ref mb, runtimeParams);
+					blendTreeMotionsAndWeights = AnimatorControllerJob.StateMachineProcessJob.GetBlendTree2DSimpleDirectionalCurrentMotions(ref motion, runtimeParams);
 					break;
 				case MotionBlob.Type.BlendTree2DFreeformCartesian:
-					blendTreeMotionsAndWeights = AnimatorControllerJob.StateMachineProcessJob.GetBlendTree2DFreeformCartesianCurrentMotions(ref mb, runtimeParams);
+					blendTreeMotionsAndWeights = AnimatorControllerJob.StateMachineProcessJob.GetBlendTree2DFreeformCartesianCurrentMotions(ref motion, runtimeParams);
 					break;
 				case MotionBlob.Type.BlendTree2DFreeformDirectional:
-					blendTreeMotionsAndWeights = AnimatorControllerJob.StateMachineProcessJob.GetBlendTree2DFreeformDirectionalCurrentMotions(ref mb, runtimeParams);
+					blendTreeMotionsAndWeights = AnimatorControllerJob.StateMachineProcessJob.GetBlendTree2DFreeformDirectionalCurrentMotions(ref motion, runtimeParams);
 					break;
 			}
 	
 			if (blendTreeMotionsAndWeights.IsCreated)
 			{
-				AddMotionsFromBlendtree(blendTreeMotionsAndWeights, ref outAnims, runtimeParams, ref mb.BlendTree.Motions, weight, normalizedStateTime);
+				AddMotionsFromBlendtree(blendTreeMotionsAndWeights, ref outAnims, runtimeParams, ref motion.BlendTree.Motions, weight, normalizedStateTime);
 			}
 	
 			return outAnims.Length - startLen;
 		}
 
-		private float GetDurationTime(ref StateBlob sb, in DynamicBuffer<AnimatorControllerParameterComponent> runtimeParams, float normalizedDuration)
+		private float GetDurationTime(ref StateBlob state, in NativeArray<AnimatorControllerParameterComponent> runtimeParams, float normalizedDuration)
 		{
 			var timeDuration = normalizedDuration;
-			if (sb.TimeParameterIndex >= 0)
+			if (state.TimeParameterIndex >= 0)
 			{
-				timeDuration = runtimeParams[sb.TimeParameterIndex].FloatValue;
+				timeDuration = runtimeParams[state.TimeParameterIndex].FloatValue;
 			}
-			var stateCycleOffset = sb.CycleOffset;
-			if (sb.CycleOffsetParameterIndex >= 0)
+
+			var stateCycleOffset = state.CycleOffset;
+			if (state.CycleOffsetParameterIndex >= 0)
 			{
-				stateCycleOffset = runtimeParams[sb.CycleOffsetParameterIndex].FloatValue;
+				stateCycleOffset = runtimeParams[state.CycleOffsetParameterIndex].FloatValue;
 			}
+
 			timeDuration += stateCycleOffset;
+
 			return timeDuration;
 		}
 	}	

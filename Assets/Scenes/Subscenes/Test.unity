@@ -560,7 +560,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   JumpPad:
-    JumpPower: 12
+    JumpPower: 30
     UngroundingDotThreshold: 0.1
 --- !u!114 &277410530
 MonoBehaviour:
@@ -3338,7 +3338,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: caf42e67d68648dba7f56bb42c1161b2, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  Threshold: 3.5
+  Breakable:
+    Threshold: 10
+    DestructTime: 0
+    Triggered: 0
+    TimeSinceTrigger: 0
 --- !u!114 &1222431639
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -4123,7 +4127,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: caf42e67d68648dba7f56bb42c1161b2, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  Threshold: 3.5
+  Breakable:
+    Threshold: 3
+    DestructTime: 0
+    Triggered: 0
+    TimeSinceTrigger: 0
 --- !u!114 &1519906533
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -4657,7 +4665,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: caf42e67d68648dba7f56bb42c1161b2, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  Threshold: 3.5
+  Breakable:
+    Threshold: 3
+    DestructTime: 3
+    Triggered: 0
+    TimeSinceTrigger: 0
 --- !u!114 &1636370460
 MonoBehaviour:
   m_ObjectHideFlags: 0

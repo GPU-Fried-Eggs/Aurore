@@ -23,16 +23,16 @@ public partial struct AnimationApplicationSystem: ISystem
 	[BurstCompile]
 	public void OnCreate(ref SystemState state)
 	{
-		using var eqb0 = new EntityQueryBuilder(Allocator.Temp)
+		using var boneObjectEntitiesWithParentQueryBuilder = new EntityQueryBuilder(Allocator.Temp)
 			.WithAll<AnimatorEntityRefComponent, Parent>()
 			.WithAllRW<LocalTransform>();
-		m_BoneObjectEntitiesWithParentQuery = state.GetEntityQuery(eqb0);
+		m_BoneObjectEntitiesWithParentQuery = state.GetEntityQuery(boneObjectEntitiesWithParentQueryBuilder);
 
-		using var eqb1 = new EntityQueryBuilder(Allocator.Temp)
+		using var boneObjectEntitiesNoParentQueryBuilder = new EntityQueryBuilder(Allocator.Temp)
 			.WithAll<AnimatorEntityRefComponent>()
 			.WithNone<Parent>()
 			.WithAllRW<LocalTransform>();
-		m_BoneObjectEntitiesNoParentQuery = state.GetEntityQuery(eqb1);
+		m_BoneObjectEntitiesNoParentQuery = state.GetEntityQuery(boneObjectEntitiesNoParentQueryBuilder);
 
 		m_RigToSkinnedMeshRemapTables = new NativeParallelHashMap<Hash128, BlobAssetReference<BoneRemapTableBlob>>(128, Allocator.Persistent);
 	}
@@ -48,10 +48,10 @@ public partial struct AnimationApplicationSystem: ISystem
     {
 		ref var runtimeData = ref SystemAPI.GetSingletonRW<RuntimeAnimationData>().ValueRW;
 
-		var fillRigtoSkinnedMeshRemapTablesJh = FillRigToSkinBonesRemapTableCache(ref state);
+		var fillRigToSkinnedMeshRemapTablesJobHandle = FillRigToSkinBonesRemapTableCache(ref state);
 
 		//	Compute root motion
-		var rootMotionJobHandle = ComputeRootMotion(ref state, runtimeData, fillRigtoSkinnedMeshRemapTablesJh);
+		var rootMotionJobHandle = ComputeRootMotion(ref state, runtimeData, fillRigToSkinnedMeshRemapTablesJobHandle);
 
 		//	Propagate local animated transforms to the entities with parents
 		var propagateTRSWithParentsJobHandle = PropagateAnimatedBonesToEntitiesTRS(ref state, runtimeData, m_BoneObjectEntitiesWithParentQuery, rootMotionJobHandle);
@@ -91,11 +91,11 @@ public partial struct AnimationApplicationSystem: ISystem
 
 		var fillRigToSkinBonesRemapTableCacheJob = new FillRigToSkinBonesRemapTableCacheJob
 		{
-			RigDefinitionArr = rigDefinitionComponentLookup,
+			RigDefinitionLookup = rigDefinitionComponentLookup,
 			RigToSkinnedMeshRemapTables = m_RigToSkinnedMeshRemapTables,
 			SkinnedMeshes = skinnedMeshes,
 #if AURORE_DEBUG
-			doLogging = dc.logAnimationCalculationProcesses
+			DoLogging = dc.logAnimationCalculationProcesses
 #endif
 		};
 
@@ -122,7 +122,7 @@ public partial struct AnimationApplicationSystem: ISystem
 		{
 			BoneTransforms = runtimeData.AnimatedBonesBuffer,
 			EntityToDataOffsetMap = runtimeData.EntityToDataOffsetMap,
-			BoneTransformFlags = runtimeData.BoneTransformFlagsHolderArr
+			BoneTransformFlags = runtimeData.BoneTransformFlagsBuffer
 		};
 
 		return makeAbsTransformsJob.ScheduleParallel(dependsOn);
@@ -143,7 +143,7 @@ public partial struct AnimationApplicationSystem: ISystem
 		return animationApplyJob.ScheduleParallel(dependsOn);
 	}
 
-	#region Job
+	#region Jobs Implement
 
 	[BurstCompile]
 	private partial struct MakeAbsoluteTransformsJob: IJobEntity
@@ -160,13 +160,13 @@ public partial struct AnimationApplicationSystem: ISystem
 			if (!EntityToDataOffsetMap.TryGetValue(rigEntity, out var boneDataOffset))
 				return;
 	
-			ref var rigBones = ref rigDef.RigBlob.Value.Bones;
+			ref var rigBoneBlobArray = ref rigDef.RigBlob.Value.Bones;
 	
-			var boneTransformsForRig = BoneTransforms.GetSpan(boneDataOffset.x, rigBones.Length);
-			var boneFlags = AnimationTransformFlags.CreateFromBufferRW(BoneTransformFlags, boneDataOffset.y, rigBones.Length);
+			var boneTransformsForRig = BoneTransforms.GetSpan(boneDataOffset.x, rigBoneBlobArray.Length);
+			var boneFlags = AnimationTransformFlags.CreateFromBufferRW(BoneTransformFlags, boneDataOffset.y, rigBoneBlobArray.Length);
 	
 			// Iterate over all animated bones and calculate absolute transform in-place
-			for (var animationBoneIndex = 0; animationBoneIndex < rigBones.Length; ++animationBoneIndex)
+			for (var animationBoneIndex = 0; animationBoneIndex < rigBoneBlobArray.Length; ++animationBoneIndex)
 			{
 				MakeAbsoluteTransform(boneFlags, animationBoneIndex, boneTransformsForRig, rigDef.RigBlob);
 			}
@@ -208,8 +208,8 @@ public partial struct AnimationApplicationSystem: ISystem
 	
 		public static Hash128 CalculateBoneRemapTableHash(in BlobAssetReference<SkinnedMeshInfoBlob> skinnedMesh, in BlobAssetReference<RigDefinitionBlob> rigDef)
 		{
-			var rv = new Hash128(skinnedMesh.Value.Hash.Value.x, skinnedMesh.Value.Hash.Value.y, rigDef.Value.Hash.Value.z, rigDef.Value.Hash.Value.w);
-			return rv;
+			var hash = new Hash128(skinnedMesh.Value.Hash.Value.x, skinnedMesh.Value.Hash.Value.y, rigDef.Value.Hash.Value.z, rigDef.Value.Hash.Value.w);
+			return hash;
 		}
 
 		private ref BoneRemapTableBlob GetBoneRemapTable(in BlobAssetReference<SkinnedMeshInfoBlob> skinnedMesh, in BlobAssetReference<RigDefinitionBlob> rigDef)
@@ -282,8 +282,7 @@ public partial struct AnimationApplicationSystem: ISystem
 				return;
 	
 			var boneData = RuntimeAnimationData.GetAnimationDataForRigRO(BoneTransforms, EntityToDataOffsetMap, rigDef, animatorRef.AnimatorEntity);
-			if (boneData.IsEmpty)
-				return;
+			if (boneData.IsEmpty) return;
 			
 			lt = boneData[animatorRef.BoneIndexInAnimationRig].ToLocalTransformComponent();
 		}
@@ -315,64 +314,60 @@ public partial struct AnimationApplicationSystem: ISystem
 	[BurstCompile]
 	private struct FillRigToSkinBonesRemapTableCacheJob: IJob
 	{
-		[ReadOnly]
-		public ComponentLookup<RigDefinitionComponent> RigDefinitionArr;
-		[ReadOnly]
-		public NativeList<AnimatedSkinnedMeshComponent> SkinnedMeshes;
+		[ReadOnly] public ComponentLookup<RigDefinitionComponent> RigDefinitionLookup;
+		[ReadOnly] public NativeList<AnimatedSkinnedMeshComponent> SkinnedMeshes;
 		public NativeParallelHashMap<Hash128, BlobAssetReference<BoneRemapTableBlob>> RigToSkinnedMeshRemapTables;
 	
 #if AURORE_DEBUG
-		public bool doLogging;
+		public bool DoLogging;
 #endif
 	
 		public void Execute()
 		{
 			for (var l = 0; l < SkinnedMeshes.Length; ++l)
 			{
-				var sm = SkinnedMeshes[l];
-				if (!RigDefinitionArr.TryGetComponent(sm.AnimatedRigEntity, out var rigDef))
+				var skinnedMesh = SkinnedMeshes[l];
+				if (!RigDefinitionLookup.TryGetComponent(skinnedMesh.AnimatedRigEntity, out var rigDefinition))
 					continue;
 	
 				//	Try cache first
-				var h = ApplyAnimationToSkinnedMeshJob.CalculateBoneRemapTableHash(sm.BoneInfos, rigDef.RigBlob);
-				if (RigToSkinnedMeshRemapTables.TryGetValue(h, out var rv))
+				var hash = ApplyAnimationToSkinnedMeshJob.CalculateBoneRemapTableHash(skinnedMesh.BoneInfos, rigDefinition.RigBlob);
+				if (RigToSkinnedMeshRemapTables.TryGetValue(hash, out var boneRemapTableBlobReference))
 					continue;
 	
 				//	Compute new remap table
-				var bb = new BlobBuilder(Allocator.Temp);
-				ref var brt = ref bb.ConstructRoot<BoneRemapTableBlob>();
+				var blobBuilder = new BlobBuilder(Allocator.Temp);
+				ref var boneRemapTableBlob = ref blobBuilder.ConstructRoot<BoneRemapTableBlob>();
 	
 #if AURORE_DEBUG
-				ref var rnd = ref rigDef.RigBlob.Value.Name;
-				ref var snd = ref sm.BoneInfos.Value.skeletonName;
-				if (doLogging)
-					Debug.Log($"[FillRigToSkinBonesRemapTableCacheJob] Creating rig '{rnd.ToFixedString()}' to skinned mesh '{snd.ToFixedString()}' remap table");
+				ref var rnd = ref rigDefinition.RigBlob.Value.Name;
+				ref var snd = ref skinnedMesh.BoneInfos.Value.skeletonName;
+				if (DoLogging) Debug.Log($"[FillRigToSkinBonesRemapTableCacheJob] Creating rig '{rnd.ToFixedString()}' to skinned mesh '{snd.ToFixedString()}' remap table");
 #endif
-				
-				var bba = bb.Allocate(ref brt.RigBoneToSkinnedMeshBoneRemapIndices, rigDef.RigBlob.Value.Bones.Length);
-				for (var i = 0; i < bba.Length; ++i)
+
+				var blobBuilderArray = blobBuilder.Allocate(ref boneRemapTableBlob.RigBoneToSkinnedMeshBoneRemapIndices, rigDefinition.RigBlob.Value.Bones.Length);
+				for (var i = 0; i < blobBuilderArray.Length; ++i)
 				{
-					bba[i] = -1;
-					ref var rb = ref rigDef.RigBlob.Value.Bones[i];
-					var rbHash =  rb.Hash;
-					
-					for (var j = 0; j < sm.BoneInfos.Value.Bones.Length; ++j)
+					blobBuilderArray[i] = -1;
+					ref var rigBoneInfo = ref rigDefinition.RigBlob.Value.Bones[i];
+					var rigBoneInfoHash =  rigBoneInfo.Hash;
+
+					for (var j = 0; j < skinnedMesh.BoneInfos.Value.Bones.Length; ++j)
 					{
-						ref var bn = ref sm.BoneInfos.Value.Bones[j];
-						var bnHash = bn.Hash;
+						ref var skinnedMeshBoneInfo = ref skinnedMesh.BoneInfos.Value.Bones[j];
+						var skinnedMeshBoneInfoHash = skinnedMeshBoneInfo.Hash;
 	
-						if (bnHash == rbHash)
+						if (skinnedMeshBoneInfoHash == rigBoneInfoHash)
 						{ 
-							bba[i] = j;
+							blobBuilderArray[i] = j;
 #if AURORE_DEBUG
-							if (doLogging)
-								Debug.Log($"[FillRigToSkinBonesRemapTableCacheJob] Remap {rb.Name.ToFixedString()}->{bn.name.ToFixedString()} : {i} -> {j}");
+							if (DoLogging) Debug.Log($"[FillRigToSkinBonesRemapTableCacheJob] Remap {rigBoneInfo.Name.ToFixedString()}->{skinnedMeshBoneInfo.name.ToFixedString()} : {i} -> {j}");
 #endif
 						}
 					}
 				}
-				rv = bb.CreateBlobAssetReference<BoneRemapTableBlob>(Allocator.Persistent);
-				RigToSkinnedMeshRemapTables.Add(h, rv);
+				boneRemapTableBlobReference = blobBuilder.CreateBlobAssetReference<BoneRemapTableBlob>(Allocator.Persistent);
+				RigToSkinnedMeshRemapTables.Add(hash, boneRemapTableBlobReference);
 			}
 		}
 	}	

@@ -32,6 +32,7 @@ public struct RootMotionAnimationStateComponent: IBufferElementData, IEnableable
 	public Hash128 AnimationHash;
 	public BoneTransform AnimationState;
 }
+
 public static class SpecialBones
 {
 	public static readonly FixedStringName unnamedRootBoneName = "AURORE_UnnamedRootBone";

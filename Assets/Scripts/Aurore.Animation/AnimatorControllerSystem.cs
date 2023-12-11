@@ -36,7 +36,7 @@ public partial struct AnimatorControllerSystem<T>: ISystem where T: IAnimatorCon
 		{
 			ControllerLayersBufferHandle = controllerLayersBufferHandle,
 			ControllerParametersBufferHandle = controllerParametersBufferHandle,
-			DT = dt,
+			DeltaTime = dt,
 			FrameIndex = frameCount,
 #if AURORE_DEBUG
 			DoLogging = dc.logAnimatorControllerProcesses,

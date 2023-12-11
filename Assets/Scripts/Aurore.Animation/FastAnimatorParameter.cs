@@ -25,7 +25,7 @@ public struct FastAnimatorParameter
 
 	bool GetRuntimeParameterDataInternal(int paramIdx, DynamicBuffer<AnimatorControllerParameterComponent> runtimeParameters, out ParameterValue outData)
 	{
-		bool isValid = paramIdx >= 0;
+		var isValid = paramIdx >= 0;
 
 		if (isValid)
 		{
@@ -55,7 +55,7 @@ public struct FastAnimatorParameter
 
 	bool SetRuntimeParameterDataInternal(int paramIdx, DynamicBuffer<AnimatorControllerParameterComponent> runtimeParameters, in ParameterValue paramData)
 	{
-		bool isValid = paramIdx >= 0;
+		var isValid = paramIdx >= 0;
 
 		if (isValid)
 		{
@@ -87,7 +87,7 @@ public struct FastAnimatorParameter
 	//	Linear search variant
 	public static int GetRuntimeParameterIndex(uint hash, in ReadOnlySpan<AnimatorControllerParameterComponent> parameters)
 	{
-		for (int i = 0; i < parameters.Length; ++i)
+		for (var i = 0; i < parameters.Length; ++i)
 		{
 			var p = parameters[i];
 			if (p.Hash == hash)
